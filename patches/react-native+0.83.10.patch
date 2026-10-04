@@ -1,0 +1,66 @@
+diff --git a/node_modules/react-native/scripts/cocoapods/rncore.rb b/node_modules/react-native/scripts/cocoapods/rncore.rb
+index 9aeb449..0f35c18 100644
+--- a/node_modules/react-native/scripts/cocoapods/rncore.rb
++++ b/node_modules/react-native/scripts/cocoapods/rncore.rb
+@@ -143,7 +143,7 @@ class ReactNativeCoreUtils
+         rncore_log("  #{Pathname.new(destinationDebug).relative_path_from(Pathname.pwd).to_s}")
+         rncore_log("  #{Pathname.new(destinationRelease).relative_path_from(Pathname.pwd).to_s}")
+ 
+-        return {:http => URI::File.build(path: destinationDebug).to_s }
++        return {:http => URI::File.build(path: URI::DEFAULT_PARSER.escape(destinationDebug.to_s)).to_s }
+     end
+ 
+     def self.podspec_source_download_prebuilt_nightly_tarball()
+@@ -179,7 +179,7 @@ class ReactNativeCoreUtils
+         rncore_log("Resolved nightly ReactNativeCore-prebuilt version:")
+         rncore_log("  #{Pathname.new(destinationDebug).relative_path_from(Pathname.pwd).to_s}")
+         rncore_log("  #{Pathname.new(destinationRelease).relative_path_from(Pathname.pwd).to_s}")
+-        return {:http => URI::File.build(path: destinationDebug).to_s }
++        return {:http => URI::File.build(path: URI::DEFAULT_PARSER.escape(destinationDebug.to_s)).to_s }
+     end
+ 
+     def self.process_dsyms(frameworkTarball, dSymsTarball)
+diff --git a/node_modules/react-native/scripts/cocoapods/rndependencies.rb b/node_modules/react-native/scripts/cocoapods/rndependencies.rb
+index 24ebaa5..0643351 100644
+--- a/node_modules/react-native/scripts/cocoapods/rndependencies.rb
++++ b/node_modules/react-native/scripts/cocoapods/rndependencies.rb
+@@ -161,7 +161,7 @@ class ReactNativeDependenciesUtils
+         destinationDebug = download_stable_rndeps(@@react_native_path, @@react_native_version, :debug)
+         download_stable_rndeps(@@react_native_path, @@react_native_version, :release)
+ 
+-        return {:http => URI::File.build(path: destinationDebug).to_s }
++        return {:http => URI::File.build(path: URI::DEFAULT_PARSER.escape(destinationDebug.to_s)).to_s }
+     end
+ 
+     def self.release_tarball_url(version, build_type)
+@@ -228,7 +228,7 @@ class ReactNativeDependenciesUtils
+         destinationDebug = download_nightly_rndeps(@@react_native_path, @@react_native_version, :debug)
+         download_nightly_rndeps(@@react_native_path, @@react_native_version, :release)
+ 
+-        return {:http => URI::File.build(path: destinationDebug).to_s }
++        return {:http => URI::File.build(path: URI::DEFAULT_PARSER.escape(destinationDebug.to_s)).to_s }
+         return {:http => url}
+     end
+ 
+diff --git a/node_modules/react-native/sdks/hermes-engine/hermes-utils.rb b/node_modules/react-native/sdks/hermes-engine/hermes-utils.rb
+index 4f5f3e8..5777041 100644
+--- a/node_modules/react-native/sdks/hermes-engine/hermes-utils.rb
++++ b/node_modules/react-native/sdks/hermes-engine/hermes-utils.rb
+@@ -145,7 +145,7 @@ def podspec_source_build_from_local_source_dir(react_native_path)
+         if !success
+             abort "Failed to create a tarball with the contents of \"#{source_dir_path}\""
+         end
+-        return {:http => "file://#{tarball_path}"}
++        return {:http => "file://#{URI::DEFAULT_PARSER.escape(tarball_path.to_s)}"}
+     else
+         abort <<-EOS
+         [Hermes] REACT_NATIVE_OVERRIDE_HERMES_DIR is set, but points to a non-existing directory: \"#{source_dir_path}\"
+@@ -158,7 +158,7 @@ def podspec_source_local_prebuilt_tarball()
+     tarball_path = ENV['HERMES_ENGINE_TARBALL_PATH']
+     if File.exist?(tarball_path)
+         hermes_log("Using pre-built binary from local path defined by HERMES_ENGINE_TARBALL_PATH envvar: #{tarball_path}")
+-        return {:http => "file://#{tarball_path}"}
++        return {:http => "file://#{URI::DEFAULT_PARSER.escape(tarball_path.to_s)}"}
+     end
+     abort <<-EOS
+     [Hermes] HERMES_ENGINE_TARBALL_PATH is set, but points to a non-existing file: \"#{tarball_path}\"
