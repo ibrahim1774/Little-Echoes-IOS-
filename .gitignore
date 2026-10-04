@@ -1,0 +1,8 @@
+.env
+.env.*
+*.p8
+node_modules/
+.expo/
+ios/
+android/
+.DS_Store
