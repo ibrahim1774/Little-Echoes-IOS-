@@ -17,5 +17,10 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
+  ],
+  "exclude": [
+    "supabase",
+    "ios",
+    "node_modules"
   ]
 }
