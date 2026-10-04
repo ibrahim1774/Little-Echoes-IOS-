@@ -654,6 +654,9 @@ export function Settings() {
               placeholder="Write a question to ask your child..."
               placeholderTextColor={colors.gray}
               multiline
+              // Return closes the keyboard instead of adding a line break.
+              submitBehavior="blurAndSubmit"
+              returnKeyType="done"
               maxLength={200}
               textAlignVertical="top"
               className="w-full bg-echo-cream dark:bg-echo-dark-bg font-nunito text-sm text-echo-charcoal dark:text-white rounded-xl px-3 py-2.5 min-h-[60px]"

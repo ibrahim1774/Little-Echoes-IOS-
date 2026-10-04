@@ -1,0 +1,71 @@
+appId: com.ibrahim1774.littleechoes
+---
+# Memories: expand, play, calendar, growth, filters, delete.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- tapOn:
+    id: 'tab-memories'
+- extendedWaitUntil:
+    visible:
+      id: 'memories-timeline'
+    timeout: 20000
+- tapOn:
+    id: 'recording-card-.*'
+    index: 0
+- tapOn:
+    id: 'audio-play-.*'
+    index: 0
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertNotVisible: "Couldn't load this recording.*"
+- takeScreenshot: e2e/shots/20-memories-playing
+- tapOn:
+    id: 'memories-view-calendar'
+- assertVisible:
+    id: 'memories-calendar'
+- takeScreenshot: e2e/shots/21-memories-calendar
+- tapOn:
+    id: 'memories-cal-prev'
+- tapOn:
+    id: 'memories-cal-next'
+- tapOn:
+    id: 'memories-view-growth'
+- assertVisible:
+    id: 'memories-growth'
+- tapOn:
+    id: 'growth-play-all'
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: e2e/shots/22-memories-growth
+- tapOn:
+    id: 'growth-play-all'
+- tapOn:
+    id: 'memories-view-timeline'
+- tapOn:
+    id: 'memories-media-video'
+- takeScreenshot: e2e/shots/23-memories-video-filter
+- tapOn:
+    id: 'memories-media-all'
+- tapOn:
+    id: 'memories-category-emotions'
+- tapOn:
+    id: 'memories-category-all'
+# Delete the first recording (its card is still expanded from earlier)
+- runFlow:
+    when:
+      notVisible:
+        id: 'recording-delete-.*'
+    commands:
+      - tapOn:
+          id: 'recording-card-.*'
+          index: 0
+- tapOn:
+    id: 'recording-delete-.*'
+    index: 0
+- tapOn: 'Delete'
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertNotVisible: 'What did you do in art, music, or gym today?'
+- takeScreenshot: e2e/shots/24-memories-after-delete

@@ -1,0 +1,59 @@
+appId: com.ibrahim1774.littleechoes
+env:
+  EMAIL: ${EMAIL}
+  PASSWORD: ${PASSWORD}
+---
+# Signed-out device: sign in, data comes back from the cloud, audio downloads and plays.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- tapOn:
+    id: 'onboarding-signin'
+- tapOn:
+    id: 'signin-email'
+- inputText: ${EMAIL}
+- tapOn:
+    id: 'signin-password'
+- inputText: 'wrong-password'
+- pressKey: Enter
+- tapOn:
+    id: 'signin-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'signin-error'
+    timeout: 15000
+- takeScreenshot: e2e/shots/40-signin-error
+- tapOn:
+    id: 'signin-password'
+- eraseText
+- inputText: ${PASSWORD}
+- pressKey: Enter
+- tapOn:
+    id: 'signin-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'home-greeting'
+    timeout: 40000
+- tapOn:
+    text: 'Not Now'
+    optional: true
+- assertVisible: 'Hi, Renamed.*'
+- assertVisible: 'Recent Memories'
+- takeScreenshot: e2e/shots/41-home-restored
+- tapOn:
+    id: 'tab-memories'
+- extendedWaitUntil:
+    visible:
+      id: 'memories-timeline'
+    timeout: 20000
+- tapOn:
+    id: 'recording-card-.*'
+    index: 0
+- tapOn:
+    id: 'audio-play-.*'
+    index: 0
+- waitForAnimationToEnd:
+    timeout: 6000
+- assertNotVisible: "Couldn't load this recording.*"
+- takeScreenshot: e2e/shots/42-memories-restored-playing

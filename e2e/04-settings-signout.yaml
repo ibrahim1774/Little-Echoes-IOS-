@@ -1,0 +1,82 @@
+appId: com.ibrahim1774.littleechoes
+---
+# Settings: rename parent, dark mode, custom question, sign out.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- tapOn:
+    id: 'tab-settings'
+- takeScreenshot: e2e/shots/30-settings
+- tapOn:
+    id: 'settings-parent-edit'
+- tapOn:
+    id: 'settings-parent-name'
+- eraseText
+- inputText: 'Renamed'
+- tapOn:
+    id: 'settings-parent-save'
+- assertVisible: 'Renamed'
+- scrollUntilVisible:
+    element:
+      id: 'settings-dark-mode'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'settings-dark-mode'
+- takeScreenshot: e2e/shots/31-settings-dark
+- tapOn:
+    id: 'tab-home'
+- takeScreenshot: e2e/shots/32-home-dark
+- tapOn:
+    id: 'tab-memories'
+- takeScreenshot: e2e/shots/33-memories-dark
+- tapOn:
+    id: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-dark-mode'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'settings-dark-mode'
+- scrollUntilVisible:
+    element:
+      id: 'settings-question-text'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'settings-question-text'
+- inputText: 'What made you giggle today?'
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: 'settings-question-add'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'settings-question-add'
+- scrollUntilVisible:
+    element: 'What made you giggle today?'
+    direction: DOWN
+    centerElement: true
+- takeScreenshot: e2e/shots/34-settings-custom-question
+- scrollUntilVisible:
+    element:
+      id: 'settings-plan'
+    direction: DOWN
+    centerElement: true
+- assertVisible: '.*Pro.*'
+- takeScreenshot: e2e/shots/35-settings-subscription
+- scrollUntilVisible:
+    element:
+      id: 'settings-sign-out'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'settings-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-start'
+    timeout: 40000
+- takeScreenshot: e2e/shots/36-after-signout
