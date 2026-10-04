@@ -61,7 +61,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <SuperwallProvider apiKeys={{ ios: process.env.EXPO_PUBLIC_SUPERWALL_IOS_KEY! }}>
+      <SuperwallProvider
+        apiKeys={{ ios: process.env.EXPO_PUBLIC_SUPERWALL_IOS_KEY! }}
+        // Development builds simulate purchases instead of talking to the App Store.
+        options={{ testModeBehavior: __DEV__ ? 'always' : 'automatic' }}
+      >
         <AppProvider>
           <Shell />
         </AppProvider>

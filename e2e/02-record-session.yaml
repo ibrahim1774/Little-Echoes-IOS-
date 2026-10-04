@@ -1,0 +1,111 @@
+appId: com.ibrahim1774.littleechoes
+---
+# Subscribed user: home → three daily questions → review → complete → memories.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- extendedWaitUntil:
+    visible:
+      id: 'home-greeting'
+    timeout: 30000
+- assertVisible: 'Hi, Testy.*'
+- assertVisible: "Today's questions for Mia"
+- takeScreenshot: e2e/shots/10-home
+- tapOn:
+    id: 'home-start-recording'
+- tapOn:
+    id: 'today-start-questions'
+# Question 1
+- assertVisible:
+    id: 'question-text'
+- takeScreenshot: e2e/shots/11-question
+- tapOn:
+    id: 'question-read-aloud'
+- tapOn:
+    id: 'question-start-recording'
+- extendedWaitUntil:
+    visible:
+      id: 'recording-stop'
+    timeout: 10000
+- takeScreenshot: e2e/shots/12-recording
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: 'recording-stop'
+- extendedWaitUntil:
+    visible:
+      id: 'review-next'
+    timeout: 10000
+- tapOn:
+    id: 'review-play'
+- tapOn:
+    id: 'review-emotion-happy'
+- takeScreenshot: e2e/shots/13-review
+- tapOn:
+    id: 'review-next'
+# Question 2 — re-record once before keeping it
+- tapOn:
+    id: 'question-start-recording'
+- extendedWaitUntil:
+    visible:
+      id: 'recording-stop'
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: 'recording-stop'
+- extendedWaitUntil:
+    visible:
+      id: 'review-rerecord'
+    timeout: 10000
+- tapOn:
+    id: 'review-rerecord'
+- extendedWaitUntil:
+    visible:
+      id: 'recording-stop'
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: 'recording-stop'
+- extendedWaitUntil:
+    visible:
+      id: 'review-next'
+    timeout: 10000
+- tapOn:
+    id: 'review-next'
+# Question 3
+- tapOn:
+    id: 'question-start-recording'
+- extendedWaitUntil:
+    visible:
+      id: 'recording-stop'
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: 'recording-stop'
+- extendedWaitUntil:
+    visible:
+      id: 'review-next'
+    timeout: 10000
+- tapOn:
+    id: 'review-next'
+- extendedWaitUntil:
+    visible:
+      id: 'session-complete'
+    timeout: 15000
+- takeScreenshot: e2e/shots/14-complete
+- tapOn:
+    id: 'complete-memories'
+- extendedWaitUntil:
+    visible:
+      id: 'memories-timeline'
+    timeout: 15000
+- takeScreenshot: e2e/shots/15-memories-timeline
+- tapOn:
+    id: 'tab-home'
+- assertVisible: '.*1-day streak.*'
+- assertVisible: 'Recent Memories'
+- takeScreenshot: e2e/shots/16-home-after

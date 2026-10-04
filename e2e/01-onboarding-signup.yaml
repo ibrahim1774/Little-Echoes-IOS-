@@ -1,0 +1,91 @@
+appId: com.ibrahim1774.littleechoes
+env:
+  EMAIL: ${EMAIL}
+  PASSWORD: ${PASSWORD}
+---
+# Fresh user: onboarding → sign up → parent → child → paywall gate.
+- runFlow:
+    when:
+      visible: 'Cancel'
+    commands:
+      - tapOn: 'Cancel'
+- runFlow:
+    when:
+      visible: 'Continue'
+    commands:
+      - tapOn: 'Continue'
+- runFlow: _close-dev-menu.yaml
+- assertVisible: "Their little voice won't sound like this forever."
+- tapOn:
+    id: 'onboarding-start'
+- assertVisible: 'What moment do you wish you could keep forever?'
+- tapOn:
+    id: 'onboarding-emotion-1'
+- assertVisible: 'Record in seconds'
+- tapOn:
+    id: 'onboarding-continue'
+- assertVisible: 'Your voice time capsule'
+- tapOn:
+    id: 'onboarding-continue'
+- assertVisible: 'Share or keep forever'
+- tapOn:
+    id: 'onboarding-continue'
+- assertVisible: 'Hear them grow up.*'
+- takeScreenshot: e2e/shots/01-onboarding-last
+- tapOn:
+    id: 'onboarding-finish'
+- assertVisible: 'Create your account'
+# Validation: short password is rejected.
+- tapOn:
+    id: 'signup-email'
+- inputText: ${EMAIL}
+- tapOn:
+    id: 'signup-password'
+- runFlow: _dismiss-strong-password.yaml
+- inputText: '123'
+- pressKey: Enter
+- tapOn:
+    id: 'signup-submit'
+- assertVisible: 'Password must be at least 6 characters.'
+- tapOn:
+    id: 'signup-password'
+- runFlow: _dismiss-strong-password.yaml
+- eraseText
+- inputText: ${PASSWORD}
+- pressKey: Enter
+- takeScreenshot: e2e/shots/02-signup
+- tapOn:
+    id: 'signup-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'parent-name'
+    timeout: 20000
+- takeScreenshot: e2e/shots/03-parent-setup
+- tapOn:
+    id: 'parent-name'
+- inputText: 'Testy'
+- pressKey: Enter
+- tapOn:
+    id: 'parent-avatar-2'
+- tapOn:
+    id: 'parent-continue'
+- extendedWaitUntil:
+    visible:
+      id: 'child-name'
+    timeout: 10000
+- tapOn:
+    id: 'child-name'
+- inputText: 'Mia'
+- pressKey: Enter
+- tapOn:
+    id: 'child-birthdate'
+- tapOn:
+    id: 'child-birthdate-done'
+- takeScreenshot: e2e/shots/04-add-child
+- tapOn:
+    id: 'child-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'paywall-see-plans'
+    timeout: 30000
+- takeScreenshot: e2e/shots/05-paywall

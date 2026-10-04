@@ -1,0 +1,8 @@
+appId: com.ibrahim1774.littleechoes
+---
+- runFlow:
+    when:
+      visible: 'Go home'
+    commands:
+      - tapOn:
+          point: '90%,48%'

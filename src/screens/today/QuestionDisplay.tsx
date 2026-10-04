@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
+import * as Speech from 'expo-speech';
 import Svg, { Path } from 'react-native-svg';
 
 import { Pulse } from '@/components/Pulse';
@@ -13,6 +14,11 @@ interface Props {
   totalQuestions: number;
   childName: string;
   onStartRecording: () => void;
+}
+
+function readAloud(text: string) {
+  void Speech.stop();
+  Speech.speak(text, { rate: 0.85, pitch: 1.0, language: 'en-US' });
 }
 
 export function QuestionDisplay({
@@ -62,6 +68,19 @@ export function QuestionDisplay({
             {categoryLabel}
           </Text>
         </View>
+
+        {/* Read Aloud */}
+        <Pressable
+          testID="question-read-aloud"
+          accessibilityRole="button"
+          onPress={() => readAloud(question.text)}
+          className="flex-row items-center gap-2 px-4 py-2 rounded-full border-2 active:opacity-80"
+          style={{ borderColor: categoryColor }}
+        >
+          <Text className="font-nunito-semibold text-sm" style={{ color: categoryColor }}>
+            🔊 Read Aloud
+          </Text>
+        </Pressable>
       </View>
 
       {/* Record button */}

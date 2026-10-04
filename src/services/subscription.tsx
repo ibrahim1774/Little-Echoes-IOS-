@@ -39,15 +39,26 @@ export function SubscriptionBridge({ onReady }: { onReady: () => void }) {
     onReady();
   }, [onReady]);
 
+  // identify() can fail while Superwall is still configuring (slow network),
+  // so retry rather than leaving the user anonymous for the whole session.
+  const [identifyAttempt, setIdentifyAttempt] = useState(0);
   useEffect(() => {
+    let retry: ReturnType<typeof setTimeout> | undefined;
     if (userId && identified.current !== userId) {
       identified.current = userId;
-      void identify(userId).catch((err) => console.warn('[superwall] identify failed', err));
+      identify(userId).catch((err) => {
+        console.warn('[superwall] identify failed', err);
+        if (identified.current === userId) identified.current = null;
+        if (identifyAttempt < 5) retry = setTimeout(() => setIdentifyAttempt((n) => n + 1), 5000);
+      });
     } else if (!userId && identified.current) {
       identified.current = null;
       void signOut().catch(() => {});
     }
-  }, [userId, identify, signOut]);
+    return () => {
+      if (retry) clearTimeout(retry);
+    };
+  }, [userId, identify, signOut, identifyAttempt]);
 
   useEffect(() => {
     const timer = setTimeout(markReady, STATUS_TIMEOUT_MS);

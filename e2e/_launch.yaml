@@ -1,0 +1,34 @@
+appId: com.ibrahim1774.littleechoes
+env:
+  TIER_INDEX: ${TIER_INDEX}
+---
+# Open the development build against the local Metro server and choose the
+# subscription state in Superwall's test-mode panel.
+# TIER_INDEX: 0 = basic subscribed, 1 = pro subscribed, anything else = unsubscribed.
+- stopApp
+- openLink: 'exp+little-echoes://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+- tapOn:
+    text: 'Open'
+    optional: true
+# The simulator has no App Store account, so StoreKit asks for one.
+- tapOn:
+    text: 'Cancel'
+    optional: true
+- extendedWaitUntil:
+    visible: '.*Test Mode Active.*'
+    timeout: 30000
+- tapOn:
+    text: 'Cancel'
+    optional: true
+- tapOn: 'Reset to Defaults'
+- runFlow:
+    when:
+      true: ${TIER_INDEX == 0 || TIER_INDEX == 1}
+    commands:
+      - tapOn:
+          text: 'Inactive.*'
+          index: ${TIER_INDEX}
+      - tapOn: 'Subscribed'
+- tapOn: 'OK'
+- waitForAnimationToEnd:
+    timeout: 5000
