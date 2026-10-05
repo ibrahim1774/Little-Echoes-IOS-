@@ -72,6 +72,14 @@ env:
 - pressKey: Enter
 - tapOn:
     id: 'child-birthdate'
+# Pick a birth year a few years back: ages 1–2 get free recording, the daily
+# questions (used by the session flow) start at age 3.
+- swipe:
+    from: '2026'
+    direction: DOWN
+- swipe:
+    from: '20[0-9][0-9]'
+    direction: DOWN
 - tapOn:
     id: 'child-birthdate-done'
 - takeScreenshot: e2e/shots/04-add-child

@@ -9,7 +9,7 @@ appId: com.ibrahim1774.littleechoes
     visible:
       id: 'home-greeting'
     timeout: 30000
-- assertVisible: "Record Mia's voice"
+- assertVisible: "(Record Mia's voice|Today's questions for Mia)"
 - takeScreenshot: e2e/shots/70-basic-home
 - tapOn:
     id: 'tab-videos'
