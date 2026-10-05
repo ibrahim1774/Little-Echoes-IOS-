@@ -1,0 +1,30 @@
+appId: com.ibrahim1774.littleechoes
+---
+# Marketing screenshots: Memories timeline (one card expanded), calendar and growth. Read-only.
+- tapOn:
+    id: 'tab-memories'
+- extendedWaitUntil:
+    visible:
+      id: 'memories-timeline'
+    timeout: 15000
+- tapOn:
+    id: 'recording-card-.*'
+    index: 0
+- waitForAnimationToEnd
+- takeScreenshot: e2e/shots/m-timeline
+- tapOn:
+    id: 'memories-view-calendar'
+- extendedWaitUntil:
+    visible:
+      id: 'memories-calendar'
+    timeout: 10000
+- takeScreenshot: e2e/shots/m-calendar
+- tapOn:
+    id: 'memories-view-growth'
+- extendedWaitUntil:
+    visible:
+      id: 'memories-growth'
+    timeout: 10000
+- takeScreenshot: e2e/shots/m-growth
+- tapOn:
+    id: 'memories-view-timeline'

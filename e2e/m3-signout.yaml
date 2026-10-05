@@ -1,0 +1,16 @@
+appId: com.ibrahim1774.littleechoes
+---
+# Marketing screenshots helper: sign out from Settings.
+- tapOn:
+    id: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-sign-out'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'settings-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-start'
+    timeout: 40000

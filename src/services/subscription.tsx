@@ -94,6 +94,8 @@ export function SubscriptionBridge({ onReady }: { onReady: () => void }) {
   return null;
 }
 
+const LOAD_PLANS_ERROR = 'Could not load plans. Please check your connection and try again.';
+
 /** Present a paywall for a placement. `onEntitled` runs once the user has access. */
 export function usePaywall() {
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +115,9 @@ export function usePaywall() {
     },
     onError: (message) => {
       setPresenting(false);
-      setError(message || 'Could not load plans. Please check your connection and try again.');
+      // SDK messages are technical ("configure did not complete within 10000ms"); show plain text.
+      if (__DEV__) console.warn('[usePaywall] error', message);
+      setError(LOAD_PLANS_ERROR);
     },
   });
 
@@ -123,7 +127,8 @@ export function usePaywall() {
       try {
         await registerPlacement({ placement, feature: onEntitled });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not load plans. Please try again.');
+        if (__DEV__) console.warn('[usePaywall] register failed', err);
+        setError(LOAD_PLANS_ERROR);
       }
     },
     [registerPlacement]
@@ -140,7 +145,8 @@ export function useRestorePurchases() {
       if (result.result === 'restored') return { ok: true, message: 'Your purchases were restored.' };
       return { ok: false, message: result.errorMessage || 'No purchases were found to restore.' };
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : 'Restore failed. Please try again.' };
+      if (__DEV__) console.warn('[useRestorePurchases] failed', err);
+      return { ok: false, message: 'Restore failed. Please check your connection and try again.' };
     }
   }, [restorePurchases]);
 }

@@ -1,0 +1,83 @@
+appId: com.ibrahim1774.littleechoes
+env:
+  EMAIL: ${EMAIL}
+  PASSWORD: ${PASSWORD}
+---
+# Fresh user: onboarding → sign up → parent → child → paywall gate.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 9
+- assertVisible: "Their little voice won't sound like this forever."
+- tapOn:
+    id: 'onboarding-start'
+- assertVisible: 'What moment do you wish you could keep forever?'
+- tapOn:
+    id: 'onboarding-emotion-1'
+- assertVisible: 'Record in seconds'
+- tapOn:
+    id: 'onboarding-continue'
+- assertVisible: 'Your voice time capsule'
+- tapOn:
+    id: 'onboarding-continue'
+- assertVisible: 'Share or keep forever'
+- tapOn:
+    id: 'onboarding-continue'
+- assertVisible: 'Hear them grow up.*'
+- tapOn:
+    id: 'onboarding-finish'
+- assertVisible: 'Create your account'
+# Validation: short password is rejected.
+- tapOn:
+    id: 'signup-email'
+- inputText: ${EMAIL}
+- tapOn:
+    id: 'signup-password'
+- runFlow: _dismiss-strong-password.yaml
+- inputText: '123'
+- pressKey: Enter
+- tapOn:
+    id: 'signup-submit'
+- assertVisible: 'Password must be at least 6 characters.'
+- tapOn:
+    id: 'signup-password'
+- runFlow: _dismiss-strong-password.yaml
+- eraseText
+- inputText: ${PASSWORD}
+- pressKey: Enter
+- tapOn:
+    id: 'signup-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'parent-name'
+    timeout: 20000
+- tapOn:
+    id: 'parent-name'
+- inputText: 'Sarah'
+- pressKey: Enter
+- tapOn:
+    id: 'parent-avatar-2'
+- tapOn:
+    id: 'parent-continue'
+- extendedWaitUntil:
+    visible:
+      id: 'child-name'
+    timeout: 10000
+- tapOn:
+    id: 'child-name'
+- inputText: 'Mia'
+- pressKey: Enter
+- tapOn:
+    id: 'child-birthdate'
+- tapOn:
+    id: 'child-birthdate-done'
+- tapOn:
+    id: 'child-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'paywall-see-plans'
+    timeout: 30000
+- tapOn:
+    id: 'paywall-see-plans'
+- waitForAnimationToEnd:
+    timeout: 4000
