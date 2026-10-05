@@ -2,7 +2,7 @@ import '../../global.css';
 
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SuperwallProvider } from 'expo-superwall';
@@ -17,7 +17,7 @@ import {
 import { Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 
 import { AppProvider, useApp } from '@/context/AppContext';
-import { initAnalytics } from '@/services/analytics';
+import { initAnalytics, trackScreen } from '@/services/analytics';
 import { SubscriptionBridge } from '@/services/subscription';
 import { SubscriptionReadyContext } from '@/context/SubscriptionReady';
 
@@ -27,6 +27,10 @@ function Shell() {
   const { state } = useApp();
   const [subscriptionReady, setSubscriptionReady] = useState(false);
   const onReady = useCallback(() => setSubscriptionReady(true), []);
+  const pathname = usePathname();
+  useEffect(() => {
+    if (pathname) trackScreen(pathname);
+  }, [pathname]);
 
   return (
     <SubscriptionReadyContext.Provider value={subscriptionReady}>

@@ -32,7 +32,8 @@ export function initAnalytics(): void {
 
   if (POSTHOG_KEY) {
     try {
-      posthog = new PostHog(POSTHOG_KEY, { host: POSTHOG_HOST });
+      // Lifecycle events give installs, opens and backgrounding without extra calls.
+      posthog = new PostHog(POSTHOG_KEY, { host: POSTHOG_HOST, captureAppLifecycleEvents: true });
     } catch (err) {
       console.warn('[analytics] PostHog init failed', err);
     }
@@ -92,6 +93,24 @@ export function identifyUser(userId: string): void {
     if (appsFlyerReady) void appsFlyer.setCustomerUserId({ customerId: userId });
   } catch (err) {
     console.warn('[analytics] identify failed', err);
+  }
+}
+
+/** Record a screen view (route path) in PostHog. */
+export function trackScreen(path: string): void {
+  try {
+    posthog?.screen(path);
+  } catch (err) {
+    console.warn('[analytics] screen failed', err);
+  }
+}
+
+/** Store the user's plan on their PostHog person so funnels can be split by tier. */
+export function setUserTier(tier: string | null): void {
+  try {
+    if (pendingUserId) posthog?.identify(pendingUserId, { tier: tier ?? 'none' });
+  } catch (err) {
+    console.warn('[analytics] set tier failed', err);
   }
 }
 

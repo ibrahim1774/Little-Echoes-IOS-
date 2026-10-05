@@ -8,7 +8,7 @@ import { usePlacement, useSuperwall, useSuperwallEvents, useUser } from 'expo-su
 
 import { useApp } from '@/context/AppContext';
 import { resolveTier } from '@/lib/logic';
-import { track } from './analytics';
+import { setUserTier, track } from './analytics';
 import { writeSubscriptionToProfile } from './cloudSync';
 
 export const PLACEMENTS = {
@@ -70,7 +70,10 @@ export function SubscriptionBridge({ onReady }: { onReady: () => void }) {
     const active = status === 'ACTIVE' ? (subscriptionStatus as { entitlements: { id: string }[] }).entitlements : [];
     const resolved = resolveTier(active.map((e) => e.id), email);
     dispatch({ type: 'SET_SUBSCRIPTION', payload: resolved });
-    if (status !== 'UNKNOWN') markReady();
+    if (status !== 'UNKNOWN') {
+      markReady();
+      setUserTier(resolved.tier);
+    }
 
     // Mirror a real store subscription onto the profile for the web app.
     if (userId && status === 'ACTIVE' && resolved.isPaid) {
