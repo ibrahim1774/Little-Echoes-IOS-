@@ -49,3 +49,7 @@ example
 # generated native folders
 /ios
 /android
+
+# Rendered App Store screenshots (regenerate with the vibe-aso renderer)
+aso/screenshots/out/
+aso/screenshots/headings_part*.json
