@@ -1,4 +1,4 @@
-Little Echoes, çocuğunuz için bir ses günlüğüdür. Her gün basit bir soru sorun, cevabını tek dokunuşla kaydedin ve sesini her yaşta olduğu gibi saklayın.
+Little Echoes, ebeveynler için tasarlanmış, çocuğunuza dair bir ses günlüğüdür. Her gün basit bir soru sorun, cevabını tek dokunuşla kaydedin ve sesini her yaşta olduğu gibi saklayın.
 
 Çocuklar çabucak büyür ve sesleri siz fark etmeden değişir. "Helikopter" deyişleri. Kendi uydurdukları şarkılar. Yatmadan önce anlattıkları hikâyeler. Little Echoes bu anları saklar, böylece onları beş, on ya da yirmi yıl sonra yeniden dinleyebilirsiniz.
 
@@ -24,4 +24,4 @@ GİZLİ VE YEDEKLİ
 
 Küçük şeyleri hatırlamak isteyen ebeveynler için tasarlandı: ilk kelimeler, komik telaffuz hataları, en sevilen şarkılar ve büyük sorular.
 
-Little Echoes otomatik yenilenen abonelikler sunar. Kullanım Koşulları: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+Little Echoes'u kullanmak için abonelik gereklidir; planlar abone olmadan önce uygulamada gösterilir ve iptal edilene kadar otomatik olarak yenilenir. Kullanım Koşulları: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/

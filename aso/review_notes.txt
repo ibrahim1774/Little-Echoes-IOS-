@@ -1,0 +1,23 @@
+Little Echoes lets a parent record their child's spoken answers to a daily question and keeps them as a private voice diary (memory book) of how the child sounds at every age. The app is used by parents; children do not sign in.
+
+DEMO ACCOUNT
+The demo account below already contains a child profile and recordings. You can also create a new account from the first screen.
+
+WHY AN ACCOUNT IS REQUIRED
+Recordings are backed up to the parent's private cloud account so they are not lost with the phone and are available on the parent's other devices. The subscription works across the same account's devices.
+
+SUBSCRIPTIONS (all testable with a sandbox Apple ID)
+After sign-in the app shows a "Choose your plan" screen. Three auto-renewable plans in one subscription group:
+- Basic Monthly: audio recordings only.
+- Pro Monthly and Pro Yearly: audio plus daily video clips. Both include a 3-day free trial.
+Price, billing period and trial terms are shown on the plan screen with links to the Terms of Use (Apple standard EULA) and Privacy Policy. Restore Purchases is on the plan screen and in Settings.
+
+WHERE TO FIND FEATURES
+- Home > Start Recording: today's three questions, record, review, re-record.
+- Record tab: free-form recording.
+- Video tab: daily video clip (Pro). Basic subscribers see an upgrade screen here.
+- Memories tab: Timeline, Calendar and Growth views; play or delete any recording.
+- Settings: profile, reminders, Manage subscription, Restore Purchases, Privacy Policy, Terms of Use, and Delete account (permanently deletes the account and all recordings and videos from our servers).
+
+PERMISSIONS
+Microphone (to record the child's voice) and camera (Pro video clips) are requested only when the parent starts recording. The app asks for App Tracking Transparency permission at launch; it is used only for AppsFlyer attribution of our own ads, and the app works the same whether it is allowed or denied.

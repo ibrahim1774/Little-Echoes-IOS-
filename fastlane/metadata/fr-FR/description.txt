@@ -1,4 +1,4 @@
-Little Echoes est un journal vocal pour votre enfant. Chaque jour, posez-lui une question simple, enregistrez sa réponse en un geste et gardez une trace de sa voix à chaque âge.
+Little Echoes est un journal vocal pour les parents. Chaque jour, posez une question simple à votre enfant, enregistrez sa réponse en un geste et gardez une trace de sa voix à chaque âge.
 
 Les enfants grandissent si vite, et leur voix change sans qu'on s'en rende compte. Sa façon de dire « hélicoptère ». Les chansons qu'il invente. Les histoires qu'il raconte au moment du coucher. Little Echoes conserve ces instants pour que vous puissiez les réécouter dans cinq, dix ou vingt ans.
 
@@ -24,4 +24,4 @@ PRIVÉ ET SAUVEGARDÉ
 
 Pensé pour les parents qui veulent garder les petits riens : les premiers mots, les mots écorchés, les chansons préférées et les grandes questions.
 
-Little Echoes propose des abonnements à renouvellement automatique. Conditions d'utilisation : https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+Un abonnement est nécessaire pour utiliser Little Echoes ; les formules sont présentées dans l'app avant que vous ne vous abonniez et se renouvellent automatiquement jusqu'à leur résiliation. Conditions d'utilisation : https://www.apple.com/legal/internet-services/itunes/dev/stdeula/

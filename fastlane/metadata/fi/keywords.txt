@@ -1,1 +1,1 @@
-taapero,lapsi,perhehetket,kehitysvaiheet,muistoesine,äänitin,ensimmäiset sanat,sanonnat,aikakapseli
+taapero,lapsi,perhehetket,kehitysvaiheet,muistoesine,äänitin,ensimmäiset sanat,sanonnat,muistokirja

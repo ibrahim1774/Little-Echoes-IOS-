@@ -1,15 +1,29 @@
 appId: com.ibrahim1774.littleechoes
 ---
-# Marketing screenshots helper: sign out from Settings.
-- tapOn:
-    id: 'tab-settings'
-- scrollUntilVisible:
-    element:
-      id: 'settings-sign-out'
-    direction: DOWN
-    centerElement: true
-- tapOn:
-    id: 'settings-sign-out'
+# Helper: open the app and, if someone is signed in, sign out from Settings.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- extendedWaitUntil:
+    visible:
+      id: 'home-greeting'
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: 'tab-settings'
+    commands:
+      - tapOn:
+          id: 'tab-settings'
+      - scrollUntilVisible:
+          element:
+            id: 'settings-sign-out'
+          direction: DOWN
+          centerElement: true
+      - tapOn:
+          id: 'settings-sign-out'
 - extendedWaitUntil:
     visible:
       id: 'onboarding-start'

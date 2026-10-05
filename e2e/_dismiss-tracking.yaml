@@ -1,0 +1,9 @@
+appId: com.ibrahim1774.littleechoes
+---
+# iOS App Tracking Transparency prompt, shown once per install at launch.
+- runFlow:
+    when:
+      visible: 'Ask App Not to Track'
+    commands:
+      - takeScreenshot: e2e/shots/00-tracking-prompt
+      - tapOn: 'Ask App Not to Track'

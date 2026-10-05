@@ -1,4 +1,4 @@
-Little Echoes je hlasový deník pro vaše dítě. Každý den mu položte jednu jednoduchou otázku, jedním klepnutím nahrajte odpověď a uchovejte si, jak zní v každém věku.
+Little Echoes je hlasový deník pro rodiče. Každý den položte svému dítěti jednu jednoduchou otázku, jedním klepnutím nahrajte odpověď a uchovejte si, jak zní v každém věku.
 
 Děti rostou tak rychle a jejich hlas se změní dřív, než si toho všimnete. Jak říkají "rohlík". Písničky, které si samy vymýšlejí. Příběhy, které vyprávějí před spaním. Little Echoes tyto chvíle uchová, abyste si je mohli znovu poslechnout za pět, deset nebo dvacet let.
 
@@ -24,4 +24,4 @@ SOUKROMÉ A ZÁLOHOVANÉ
 
 Vytvořeno pro rodiče, kteří si chtějí pamatovat drobnosti: první slova, vtipné komolení slov, oblíbené písničky a velké otázky.
 
-Little Echoes nabízí automaticky obnovované předplatné. Podmínky použití: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+K používání Little Echoes je nutné předplatné; tarify se zobrazí v aplikaci ještě před zakoupením předplatného a obnovují se automaticky, dokud je nezrušíte. Podmínky použití: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/

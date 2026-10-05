@@ -1,4 +1,4 @@
-Little Echoes är en röstdagbok för ditt barn. Ställ en enkel fråga varje dag, spela in svaret med ett enda tryck och spara hur ditt barn låter i varje ålder.
+Little Echoes är en röstdagbok för föräldrar. Ställ en enkel fråga varje dag, spela in svaret med ett enda tryck och spara hur ditt barn låter i varje ålder.
 
 Barn växer upp så fort, och rösten förändras innan man hinner märka det. Hur de säger "helikopter". Sångerna de hittar på. Sagorna de berättar vid läggdags. Little Echoes sparar de stunderna så att du kan höra dem igen om fem, tio eller tjugo år.
 
@@ -24,4 +24,4 @@ PRIVAT OCH SÄKERHETSKOPIERAT
 
 Gjord för föräldrar som vill minnas de små sakerna: första orden, roliga felsägningar, favoritsånger och stora frågor.
 
-Little Echoes erbjuder prenumerationer som förnyas automatiskt. Användarvillkor: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+Little Echoes kräver en prenumeration; abonnemangen visas i appen innan du prenumererar och förnyas automatiskt tills de sägs upp. Användarvillkor: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
