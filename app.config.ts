@@ -19,6 +19,8 @@ const config: ExpoConfig = {
     supportsTablet: false,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      // Send Apple's SKAdNetwork / AdAttributionKit postback copies to AppsFlyer.
+      NSAdvertisingAttributionReportEndpoint: 'https://appsflyer-skadnetwork.com/',
       NSMicrophoneUsageDescription:
         "Little Echoes uses the microphone to record your child's voice.",
       NSCameraUsageDescription:

@@ -84,8 +84,20 @@ export function SubscriptionBridge({ onReady }: { onReady: () => void }) {
 
   useSuperwallEvents({
     onSuperwallEvent: ({ event }) => {
-      if (event.event === 'freeTrialStart') track('trial_started');
-      else if (event.event === 'subscriptionStart') track('subscription_started');
+      // AppsFlyer reads af_revenue / af_currency / af_content_id for revenue reporting.
+      if (event.event === 'freeTrialStart') {
+        track('trial_started', {
+          af_revenue: 0,
+          af_currency: event.product.currencyCode ?? 'USD',
+          af_content_id: event.product.productIdentifier,
+        });
+      } else if (event.event === 'subscriptionStart') {
+        track('subscription_started', {
+          af_revenue: event.product.price,
+          af_currency: event.product.currencyCode ?? 'USD',
+          af_content_id: event.product.productIdentifier,
+        });
+      }
       else if (event.event === 'paywallOpen') track('paywall_viewed');
       else if (event.event === 'transactionFail') track('purchase_failed');
     },
