@@ -13,11 +13,13 @@ import {
   getChildren,
   getParent,
   getRecording,
+  getStreak,
   getVideo,
   saveChild,
   saveParent,
   saveRecording,
   saveSession,
+  saveStreak,
   saveVideo,
 } from './storage';
 import {
@@ -27,6 +29,8 @@ import {
   recordingToRow,
   rowToRecording,
   rowToVideo,
+  streakFromDates,
+  toDateStr,
   videoExt,
   videoToRow,
 } from '@/lib/logic';
@@ -186,6 +190,7 @@ export async function loadFromCloud(user: AuthUser): Promise<void> {
         const session = parseJson<RecordingSession>(row.data);
         if (session?.id && !have.has(session.id)) await saveSession(session);
       }
+      await rebuildStreaks();
     }
 
     const { data: cloudVideos, error: vidError } = await supabase
@@ -212,6 +217,24 @@ export async function loadFromCloud(user: AuthUser): Promise<void> {
     }
   } catch (err) {
     console.warn('[loadFromCloud] Load failed:', err);
+  }
+}
+
+/** Streaks aren't stored in the cloud; derive them from completed sessions. */
+async function rebuildStreaks(): Promise<void> {
+  const byChild = new Map<string, string[]>();
+  for (const s of await getAllSessions()) {
+    if (s.status !== 'completed') continue;
+    byChild.set(s.childId, [...(byChild.get(s.childId) ?? []), s.date]);
+  }
+  const today = toDateStr();
+  for (const [childId, dates] of byChild) {
+    const rebuilt = streakFromDates(childId, dates, today);
+    if (!rebuilt) continue;
+    const existing = await getStreak(childId);
+    if (!existing || existing.lastRecordingDate < rebuilt.lastRecordingDate || existing.longestStreak < rebuilt.longestStreak) {
+      await saveStreak(rebuilt);
+    }
   }
 }
 

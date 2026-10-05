@@ -1,0 +1,56 @@
+appId: com.ibrahim1774.littleechoes
+---
+# Free recording, re-recorded twice, then saved. Guards against a take that
+# saves a label but no audio.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- tapOn:
+    text: 'Not Now'
+    optional: true
+- tapOn:
+    id: 'tab-today'
+- tapOn:
+    id: 'today-start-free'
+- repeat:
+    times: 2
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'recording-stop'
+          timeout: 10000
+      - extendedWaitUntil:
+          visible: 'never-shown-placeholder'
+          timeout: 3000
+          optional: true
+      - tapOn:
+          id: 'recording-stop'
+      - extendedWaitUntil:
+          visible:
+            id: 'review-rerecord'
+          timeout: 10000
+      - tapOn:
+          id: 'review-play'
+      - tapOn:
+          id: 'review-rerecord'
+- extendedWaitUntil:
+    visible:
+      id: 'recording-stop'
+    timeout: 10000
+- extendedWaitUntil:
+    visible: 'never-shown-placeholder'
+    timeout: 3000
+    optional: true
+- tapOn:
+    id: 'recording-stop'
+- extendedWaitUntil:
+    visible:
+      id: 'review-next'
+    timeout: 10000
+- takeScreenshot: e2e/shots/50-free-review
+- tapOn:
+    id: 'review-next'
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: e2e/shots/51-free-saved

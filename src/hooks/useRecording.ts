@@ -7,9 +7,15 @@ import {
   useAudioRecorderState,
 } from 'expo-audio';
 
+import { isCompleteRecording, mdatBytes } from '@/lib/logic';
+import { deleteFile, readBytes } from '@/services/files';
+
 export type RecordingState = 'idle' | 'recording' | 'stopped';
 
 export const AUDIO_MIME_TYPE = 'audio/mp4';
+
+// Shorter than this means capture failed rather than a very quick answer.
+const MIN_TAKE_SECONDS = 0.5;
 
 /**
  * Audio recording with the same shape as the web hook: state, elapsed seconds,
@@ -43,6 +49,10 @@ export function useRecording(maxSeconds = 60) {
     busy.current = true;
     clearTimer();
     const elapsed = startedAt.current ? (Date.now() - startedAt.current) / 1000 : 0;
+    // The recorder's own clock is the truth: an interruption (call, Siri, another
+    // app taking the audio session) can stop capture while our timer keeps going.
+    const native = recorder.getStatus();
+    if (__DEV__) console.log('[useRecording] stop', { elapsed, nativeMs: native.durationMillis, isRecording: native.isRecording });
     try {
       await recorder.stop();
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
@@ -52,7 +62,28 @@ export function useRecording(maxSeconds = 60) {
         setRecordingState('idle');
         return;
       }
-      setDurationSeconds(Math.max(1, Math.round(elapsed)));
+      const nativeSeconds = native.durationMillis / 1000;
+      if (nativeSeconds < MIN_TAKE_SECONDS) {
+        deleteFile(uri);
+        setError("That take didn't record. Please try again.");
+        setRecordingState('idle');
+        return;
+      }
+      // Catch a capture that stalled while the recorder kept "recording".
+      let complete = false;
+      try {
+        complete = isCompleteRecording(mdatBytes(new Uint8Array(await readBytes(uri))), nativeSeconds);
+      } catch {
+        complete = false;
+      }
+      if (__DEV__) console.log('[useRecording] file check', { complete });
+      if (!complete) {
+        deleteFile(uri);
+        setError("That take didn't record. Please try again.");
+        setRecordingState('idle');
+        return;
+      }
+      setDurationSeconds(Math.max(1, Math.round(nativeSeconds)));
       setAudioUri(uri);
       setRecordingState('stopped');
     } catch (err) {

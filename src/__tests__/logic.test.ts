@@ -266,3 +266,60 @@ describe('cloud row mapping', () => {
     expect(rowToVideo(row)).toEqual({ ...clip, localUri: undefined, videoUrl: 'u1/v1.mp4' });
   });
 });
+
+describe('recording integrity', () => {
+  const { mdatBytes, isCompleteRecording } = jest.requireActual('@/lib/logic') as typeof import('@/lib/logic');
+  const box = (type: string, payload: number) => {
+    const b = new Uint8Array(8 + payload);
+    new DataView(b.buffer).setUint32(0, 8 + payload);
+    for (let i = 0; i < 4; i++) b[4 + i] = type.charCodeAt(i);
+    return b;
+  };
+  const concat = (...parts: Uint8Array[]) => {
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    let o = 0;
+    for (const p of parts) {
+      out.set(p, o);
+      o += p.length;
+    }
+    return out;
+  };
+
+  it('finds the payload after ftyp, moov and a large free box (the stalled-capture file)', () => {
+    const file = concat(box('ftyp', 20), box('moov', 569), box('free', 56723), box('mdat', 36));
+    expect(mdatBytes(file)).toBe(36);
+    expect(isCompleteRecording(mdatBytes(file), 18)).toBe(false);
+  });
+
+  it('accepts a normal take', () => {
+    const file = concat(box('ftyp', 20), box('moov', 569), box('mdat', 19 * 15000));
+    expect(isCompleteRecording(mdatBytes(file), 19)).toBe(true);
+  });
+
+  it('rejects files without a payload or with a corrupt box size', () => {
+    expect(mdatBytes(concat(box('ftyp', 20), box('moov', 10)))).toBeNull();
+    expect(mdatBytes(new Uint8Array([0, 0, 0, 2, 102, 116, 121, 112]))).toBeNull();
+    expect(isCompleteRecording(null, 3)).toBe(false);
+  });
+});
+
+describe('streakFromDates', () => {
+  const { streakFromDates, pickQuestions: pick } = jest.requireActual('@/lib/logic') as typeof import('@/lib/logic');
+  it('returns nothing without sessions', () => {
+    expect(streakFromDates('c', [], '2026-10-04')).toBeUndefined();
+  });
+  it('counts a run ending today and remembers the longest run', () => {
+    const s = streakFromDates('c', ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-10-03', '2026-10-04', '2026-10-04'], '2026-10-04');
+    expect(s).toEqual({ childId: 'c', currentStreak: 2, longestStreak: 4, lastRecordingDate: '2026-10-04' });
+  });
+  it('keeps a streak that ended yesterday alive and zeroes an older one', () => {
+    expect(streakFromDates('c', ['2026-10-02', '2026-10-03'], '2026-10-04')?.currentStreak).toBe(2);
+    expect(streakFromDates('c', ['2026-10-01', '2026-10-02'], '2026-10-04')?.currentStreak).toBe(0);
+  });
+  it('keeps other parents\' custom questions out of the pool', () => {
+    const mine = { id: 'm', text: 'mine', category: 'favorites' as const, ageGroups: ['5-6' as const], isCustom: true, createdBy: 'p1' };
+    const theirs = { ...mine, id: 't', text: 'theirs', createdBy: 'p2' };
+    const picked = pick([mine, theirs], { ageGroup: '5-6', parentId: 'p1' }, new Set());
+    expect(picked.map((q) => q.id)).toEqual(['m']);
+  });
+});

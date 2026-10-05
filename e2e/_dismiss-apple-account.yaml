@@ -1,0 +1,23 @@
+appId: com.ibrahim1774.littleechoes
+---
+# The simulator has no App Store account, so StoreKit asks for one at an
+# unpredictable moment after launch. The prompt hides the app from Maestro,
+# so: while Superwall's test-mode panel isn't readable, tap the prompt's
+# Cancel button by position. (Real devices are signed in and never see this.)
+- repeat:
+    while:
+      notVisible: 'Starting Entitlements'
+    times: 8
+    commands:
+      - extendedWaitUntil:
+          visible: 'Starting Entitlements'
+          timeout: 5000
+          optional: true
+      - runFlow:
+          when:
+            notVisible: 'Starting Entitlements'
+          commands:
+            - tapOn:
+                point: '31%,61%'
+            - waitForAnimationToEnd:
+                timeout: 2000

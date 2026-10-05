@@ -101,7 +101,16 @@ export function usePaywall() {
   const { registerPlacement } = usePlacement({
     onPresent: () => setPresenting(true),
     onDismiss: () => setPresenting(false),
-    onSkip: () => setPresenting(false),
+    onSkip: (reason) => {
+      setPresenting(false);
+      // Already-subscribed users are routed into the app by the bridge; any
+      // other skip means no paywall is set up for this placement.
+      setError(
+        reason.type === 'PlacementNotFound' || reason.type === 'NoAudienceMatch' || reason.type === 'Holdout'
+          ? "Plans aren't available right now. Please try again in a moment."
+          : null
+      );
+    },
     onError: (message) => {
       setPresenting(false);
       setError(message || 'Could not load plans. Please check your connection and try again.');

@@ -5,16 +5,9 @@ env:
 ---
 # Fresh user: onboarding → sign up → parent → child → paywall gate.
 - runFlow:
-    when:
-      visible: 'Cancel'
-    commands:
-      - tapOn: 'Cancel'
-- runFlow:
-    when:
-      visible: 'Continue'
-    commands:
-      - tapOn: 'Continue'
-- runFlow: _close-dev-menu.yaml
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 9
 - assertVisible: "Their little voice won't sound like this forever."
 - tapOn:
     id: 'onboarding-start'
@@ -89,3 +82,8 @@ env:
       id: 'paywall-see-plans'
     timeout: 30000
 - takeScreenshot: e2e/shots/05-paywall
+- tapOn:
+    id: 'paywall-see-plans'
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: e2e/shots/06-paywall-after-see-plans

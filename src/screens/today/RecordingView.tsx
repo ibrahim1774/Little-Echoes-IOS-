@@ -148,7 +148,10 @@ export function RecordingView({
 
   // Start recording immediately on mount
   useEffect(() => {
-    void startRecording();
+    // Give the previous screen's audio player a moment to release the audio
+    // session; starting immediately can lose the take.
+    const timer = setTimeout(() => void startRecording(), 300);
+    return () => clearTimeout(timer);
   }, [startRecording]);
 
   // When recording stops, send the file back

@@ -115,7 +115,7 @@ describe('getQuestionsForChild', () => {
 });
 
 describe('custom questions and reset', () => {
-  it('keeps starter questions but removes custom ones and family data on reset', async () => {
+  it('keeps starter and custom questions but removes family data on reset', async () => {
     await ensureSeeded();
     await storage.saveParent(parent);
     await storage.saveChild(child);
@@ -129,8 +129,8 @@ describe('custom questions and reset', () => {
     expect(await storage.getParent()).toBeUndefined();
     expect(await storage.getAllRecordings()).toEqual([]);
     expect(await storage.getAllVideos()).toEqual([]);
-    expect(await storage.getCustomQuestions('p1')).toEqual([]);
-    expect(await getStore().all('questions')).toHaveLength(STARTER_QUESTIONS.length);
+    expect(await storage.getCustomQuestions('p1')).toHaveLength(1);
+    expect(await getStore().all('questions')).toHaveLength(STARTER_QUESTIONS.length + 1);
   });
 });
 

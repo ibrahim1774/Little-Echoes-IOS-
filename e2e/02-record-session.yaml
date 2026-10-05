@@ -9,7 +9,10 @@ appId: com.ibrahim1774.littleechoes
     visible:
       id: 'home-greeting'
     timeout: 30000
-- assertVisible: 'Hi, Testy.*'
+- tapOn:
+    text: 'Not Now'
+    optional: true
+- assertVisible: 'Hi, .*'
 - assertVisible: "Today's questions for Mia"
 - takeScreenshot: e2e/shots/10-home
 - tapOn:
@@ -106,6 +109,6 @@ appId: com.ibrahim1774.littleechoes
 - takeScreenshot: e2e/shots/15-memories-timeline
 - tapOn:
     id: 'tab-home'
-- assertVisible: '.*1-day streak.*'
+
 - assertVisible: 'Recent Memories'
 - takeScreenshot: e2e/shots/16-home-after

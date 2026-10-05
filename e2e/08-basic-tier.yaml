@@ -1,0 +1,28 @@
+appId: com.ibrahim1774.littleechoes
+---
+# Basic plan: app opens, video is locked behind the upgrade screen.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 0
+- extendedWaitUntil:
+    visible:
+      id: 'home-greeting'
+    timeout: 30000
+- assertVisible: "Record Mia's voice"
+- takeScreenshot: e2e/shots/70-basic-home
+- tapOn:
+    id: 'tab-videos'
+- assertVisible: 'Video moments are part of Pro'
+- takeScreenshot: e2e/shots/71-basic-video-upgrade
+- tapOn:
+    id: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-plan'
+    direction: DOWN
+    centerElement: true
+- assertVisible: 'Basic'
+- assertVisible:
+    id: 'settings-upgrade'
+- takeScreenshot: e2e/shots/72-basic-settings

@@ -31,15 +31,21 @@ env:
 - pressKey: Enter
 - tapOn:
     id: 'signin-submit'
+# iOS offers to save the password; its sheet hides the app from the test.
+- extendedWaitUntil:
+    visible: 'Not Now'
+    timeout: 20000
+    optional: true
+- tapOn:
+    text: 'Not Now'
+    optional: true
 - extendedWaitUntil:
     visible:
       id: 'home-greeting'
     timeout: 40000
-- tapOn:
-    text: 'Not Now'
-    optional: true
 - assertVisible: 'Hi, Renamed.*'
 - assertVisible: 'Recent Memories'
+- assertVisible: '.*day streak.*'
 - takeScreenshot: e2e/shots/41-home-restored
 - tapOn:
     id: 'tab-memories'
@@ -57,3 +63,9 @@ env:
     timeout: 6000
 - assertNotVisible: "Couldn't load this recording.*"
 - takeScreenshot: e2e/shots/42-memories-restored-playing
+- tapOn:
+    id: 'tab-settings'
+- scrollUntilVisible:
+    element: 'What made you giggle today?'
+    direction: DOWN
+    centerElement: true

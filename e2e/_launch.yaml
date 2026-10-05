@@ -6,20 +6,16 @@ env:
 # subscription state in Superwall's test-mode panel.
 # TIER_INDEX: 0 = basic subscribed, 1 = pro subscribed, anything else = unsubscribed.
 - stopApp
-- openLink: 'exp+little-echoes://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
-- tapOn:
-    text: 'Open'
-    optional: true
-# The simulator has no App Store account, so StoreKit asks for one.
-- tapOn:
-    text: 'Cancel'
-    optional: true
-- extendedWaitUntil:
-    visible: '.*Test Mode Active.*'
-    timeout: 30000
-- tapOn:
-    text: 'Cancel'
-    optional: true
+# The app's own scheme; the exp+ scheme is also claimed by Expo Go.
+- openLink: 'littleechoes://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+# iOS confirms before following a link into an app.
+- runFlow:
+    when:
+      visible: 'Open in .*Little Echoes.*'
+    commands:
+      - tapOn: 'Open'
+- runFlow: _dismiss-apple-account.yaml
+- assertVisible: 'Starting Entitlements'
 - tapOn: 'Reset to Defaults'
 - runFlow:
     when:
@@ -29,6 +25,9 @@ env:
           text: 'Inactive.*'
           index: ${TIER_INDEX}
       - tapOn: 'Subscribed'
+- tapOn:
+    text: 'Cancel'
+    optional: true
 - tapOn: 'OK'
 - waitForAnimationToEnd:
     timeout: 5000

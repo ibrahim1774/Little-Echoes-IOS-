@@ -1,0 +1,25 @@
+appId: com.ibrahim1774.littleechoes
+---
+# Settings → Delete account removes everything and returns to onboarding.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- tapOn:
+    id: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-delete-account'
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: 'settings-delete-account'
+- assertVisible: '.*permanently deletes.*'
+- takeScreenshot: e2e/shots/60-delete-confirm
+# The alert's button shares its label with the Settings button behind it.
+- tapOn:
+    point: '50%,55%'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-start'
+    timeout: 40000

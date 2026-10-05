@@ -90,10 +90,20 @@ export function buildGroups(sessions: RecordingSession[], recordings: Recording[
     arr.push(rec);
     recordingMap.set(rec.sessionId, arr);
   }
-  return sessions
-    .filter((s) => (recordingMap.get(s.id) ?? []).length > 0)
-    .map((s) => ({ session: s, recordings: recordingMap.get(s.id) ?? [] }))
-    .sort((a, b) => b.session.date.localeCompare(a.session.date));
+  // One group per day: a parent can run several sessions (questions, free
+  // recordings) on the same date, and they belong under one heading.
+  const byDate = new Map<string, GroupedSession>();
+  for (const s of sessions) {
+    const recs = recordingMap.get(s.id) ?? [];
+    if (recs.length === 0) continue;
+    const existing = byDate.get(s.date);
+    if (existing) existing.recordings.push(...recs);
+    else byDate.set(s.date, { session: s, recordings: [...recs] });
+  }
+  for (const group of byDate.values()) {
+    group.recordings.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  return [...byDate.values()].sort((a, b) => b.session.date.localeCompare(a.session.date));
 }
 
 export function applyFilter(groups: GroupedSession[], cat: string | null): GroupedSession[] {

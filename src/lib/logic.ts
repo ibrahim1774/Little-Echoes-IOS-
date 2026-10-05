@@ -58,6 +58,26 @@ export function nextStreak(existing: Streak | undefined, childId: string, todayS
   };
 }
 
+/**
+ * Rebuild a streak from the days a session was completed, e.g. on a new device
+ * where the local streak record doesn't exist. Dates are YYYY-MM-DD.
+ */
+export function streakFromDates(childId: string, dates: string[], todayStr: string): Streak | undefined {
+  const days = [...new Set(dates)].sort();
+  if (days.length === 0) return undefined;
+  let longest = 1;
+  let run = 1;
+  for (let i = 1; i < days.length; i++) {
+    run = daysBetween(days[i - 1], days[i]) === 1 ? run + 1 : 1;
+    longest = Math.max(longest, run);
+  }
+  const last = days[days.length - 1];
+  // A streak is still alive if the last session was today or yesterday.
+  const gap = daysBetween(last, todayStr);
+  const current = gap === 0 || gap === 1 ? run : 0;
+  return { childId, currentStreak: current, longestStreak: longest, lastRecordingDate: last };
+}
+
 // ── Question selection ────────────────────────────────────────
 
 const CATEGORIES: QuestionCategory[] = ['favorites', 'challenges', 'emotions', 'learning', 'gratitude'];
@@ -77,11 +97,14 @@ function shuffle<T>(items: T[], random: () => number): T[] {
  */
 export function pickQuestions(
   allQuestions: Question[],
-  child: Pick<ChildProfile, 'ageGroup'>,
+  child: Pick<ChildProfile, 'ageGroup'> & Partial<Pick<ChildProfile, 'parentId'>>,
   recentQuestionIds: Set<string>,
   random: () => number = Math.random
 ): Question[] {
-  const ageAppropriate = allQuestions.filter((q) => q.ageGroups.includes(child.ageGroup));
+  // Custom questions belong to one parent; keep other accounts' out of the pool.
+  const ageAppropriate = allQuestions.filter(
+    (q) => q.ageGroups.includes(child.ageGroup) && (!q.isCustom || !child.parentId || q.createdBy === child.parentId)
+  );
   const eligible = ageAppropriate.filter((q) => !recentQuestionIds.has(q.id));
   const pool = eligible.length >= 3 ? eligible : ageAppropriate;
 
@@ -225,4 +248,35 @@ export function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// ── Recording integrity ───────────────────────────────────────
+
+/** Size of the media payload ('mdat' box) in an MP4/M4A file, or null if absent. */
+export function mdatBytes(bytes: Uint8Array): number | null {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 0;
+  while (offset + 8 <= bytes.length) {
+    let size = view.getUint32(offset);
+    const type = String.fromCharCode(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7]);
+    let header = 8;
+    if (size === 1 && offset + 16 <= bytes.length) {
+      size = Number(view.getBigUint64(offset + 8));
+      header = 16;
+    } else if (size === 0) {
+      size = bytes.length - offset;
+    }
+    if (type === 'mdat') return size - header;
+    if (size < header) return null;
+    offset += size;
+  }
+  return null;
+}
+
+// AAC speech recordings never fall below ~4 KB/s; far less means capture stalled.
+const MIN_AUDIO_BYTES_PER_SECOND = 4000;
+
+export function isCompleteRecording(payloadBytes: number | null, durationSeconds: number): boolean {
+  if (payloadBytes == null) return false;
+  return payloadBytes >= durationSeconds * MIN_AUDIO_BYTES_PER_SECOND;
 }

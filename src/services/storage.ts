@@ -78,10 +78,12 @@ export async function getCustomQuestions(parentId: string): Promise<Question[]> 
 
 // ── Reset ─────────────────────────────────────────────────────
 
-/** Remove everything tied to the signed-in family. Seed questions are kept. */
+/**
+ * Remove everything tied to the signed-in family. Custom questions stay: they
+ * aren't stored in the cloud, and they only appear for the parent who wrote them.
+ */
 export async function clearAllData(): Promise<void> {
   const s = getStore();
-  const questions = await s.all<Question>('questions');
   await Promise.all([
     s.clear('parents'),
     s.clear('children'),
@@ -90,7 +92,6 @@ export async function clearAllData(): Promise<void> {
     s.clear('streaks'),
     s.clear('videos'),
     s.clear('kv'),
-    ...questions.filter((q) => q.isCustom).map((q) => s.delete('questions', q.id)),
   ]);
 }
 
@@ -158,6 +159,10 @@ export async function getRecordingsByQuestion(childId: string, questionId: strin
 
 export async function getStreak(childId: string): Promise<Streak | undefined> {
   return getStore().get<Streak>('streaks', childId);
+}
+
+export async function saveStreak(streak: Streak): Promise<void> {
+  await getStore().put('streaks', streak.childId, streak);
 }
 
 export async function updateStreak(childId: string): Promise<Streak> {
