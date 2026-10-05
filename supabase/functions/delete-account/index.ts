@@ -2,6 +2,7 @@
 // then the auth user. Required by App Store guideline 5.1.1(v).
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { importPKCS8, SignJWT } from 'npm:jose@5';
 
 const BUCKETS = ['recordings', 'videos'];
 const TABLES_BY_USER = ['recordings', 'videos', 'sessions'];
@@ -11,6 +12,55 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+/**
+ * Revoke the user's Sign in with Apple tokens (required by Apple when an account is
+ * deleted). Needs a Sign in with Apple key: APPLE_TEAM_ID, APPLE_KEY_ID,
+ * APPLE_PRIVATE_KEY (the .p8 contents) and APPLE_CLIENT_ID (the bundle ID).
+ * Returns a short status for logging; never throws.
+ */
+async function revokeApple(authorizationCode: string): Promise<string> {
+  const teamId = Deno.env.get('APPLE_TEAM_ID');
+  const keyId = Deno.env.get('APPLE_KEY_ID');
+  const privateKey = Deno.env.get('APPLE_PRIVATE_KEY');
+  const clientId = Deno.env.get('APPLE_CLIENT_ID');
+  if (!teamId || !keyId || !privateKey || !clientId) return 'skipped: Apple key not configured';
+  try {
+    const key = await importPKCS8(privateKey.replace(/\\n/g, '\n'), 'ES256');
+    const clientSecret = await new SignJWT({})
+      .setProtectedHeader({ alg: 'ES256', kid: keyId })
+      .setIssuer(teamId)
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .setAudience('https://appleid.apple.com')
+      .setSubject(clientId)
+      .sign(key);
+    const form = (body: Record<string, string>) => ({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(body),
+    });
+    const tokenRes = await fetch(
+      'https://appleid.apple.com/auth/token',
+      form({ client_id: clientId, client_secret: clientSecret, code: authorizationCode, grant_type: 'authorization_code' })
+    );
+    const tokens = await tokenRes.json().catch(() => ({}));
+    const token = tokens.refresh_token ?? tokens.access_token;
+    if (!token) return `token exchange failed (${tokenRes.status})`;
+    const revokeRes = await fetch(
+      'https://appleid.apple.com/auth/revoke',
+      form({
+        client_id: clientId,
+        client_secret: clientSecret,
+        token,
+        token_type_hint: tokens.refresh_token ? 'refresh_token' : 'access_token',
+      })
+    );
+    return revokeRes.ok ? 'revoked' : `revoke failed (${revokeRes.status})`;
+  } catch (err) {
+    return `revoke error: ${err instanceof Error ? err.message : String(err)}`;
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -28,6 +78,11 @@ Deno.serve(async (req: Request) => {
   const { data: userData, error: userError } = await admin.auth.getUser(token);
   if (userError || !userData.user) return json({ error: 'Not signed in' }, 401);
   const userId = userData.user.id;
+
+  const body = await req.json().catch(() => ({}));
+  if (typeof body?.appleAuthorizationCode === 'string' && body.appleAuthorizationCode) {
+    console.log('[delete-account] apple', await revokeApple(body.appleAuthorizationCode));
+  }
 
   for (const bucket of BUCKETS) {
     // Files live at <userId>/<file>; page through until the folder is empty.

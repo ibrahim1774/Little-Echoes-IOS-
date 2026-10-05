@@ -142,7 +142,26 @@ export async function signOut(user: AuthUser | null): Promise<void> {
 
 /** Permanently delete the account and everything stored for it. */
 export async function deleteAccount(): Promise<{ error?: string }> {
-  const { data, error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+  // Apple requires revoking Sign in with Apple tokens when an account is deleted.
+  // A fresh authorization code lets the server do that.
+  let appleAuthorizationCode: string | undefined;
+  const { data: current } = await supabase.auth.getUser();
+  const providers = (current.user?.app_metadata?.providers as string[] | undefined) ?? [];
+  if (providers.includes('apple') && (await isAppleSignInAvailable())) {
+    try {
+      const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
+      appleAuthorizationCode = credential.authorizationCode ?? undefined;
+    } catch (err) {
+      if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
+        return { error: 'Confirm with Apple to delete your account.' };
+      }
+    }
+  }
+
+  const { data, error } = await supabase.functions.invoke('delete-account', {
+    method: 'POST',
+    body: appleAuthorizationCode ? { appleAuthorizationCode } : {},
+  });
   if (error) return { error: error.message };
   if (data && typeof data === 'object' && 'error' in data && data.error) return { error: String(data.error) };
   await clearLocalData();
