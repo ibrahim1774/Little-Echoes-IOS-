@@ -17,6 +17,8 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'com.ibrahim1774.littleechoes',
     supportsTablet: false,
+    // Sign in with Apple entitlement (guideline 4.8 requires it alongside other social logins).
+    usesAppleSignIn: true,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       // Send Apple's SKAdNetwork / AdAttributionKit postback copies to AppsFlyer.
@@ -52,6 +54,7 @@ const config: ExpoConfig = {
     ['expo-notifications', { color: '#FF6B6B' }],
     [
       'expo-tracking-transparency',
+      'expo-apple-authentication',
       {
         userTrackingPermission:
           'This lets us understand which ads bring families to Little Echoes. Your recordings are never shared.',

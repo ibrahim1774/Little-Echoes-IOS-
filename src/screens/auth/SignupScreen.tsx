@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 
+import { AppleButton } from '@/components/auth/AppleButton';
 import { GoogleButton } from '@/components/auth/GoogleButton';
 import { Screen } from '@/components/Screen';
 import { useApp } from '@/context/AppContext';
 import { colors, shadows } from '@/lib/theme';
 import { track } from '@/services/analytics';
-import { isGoogleConfigured, signInWithGoogle, signUpWithEmail, type AuthResult } from '@/services/auth';
+import { isGoogleConfigured, signInWithApple, signInWithGoogle, signUpWithEmail, type AuthResult } from '@/services/auth';
 import { syncToCloud } from '@/services/cloudSync';
 import { getChildren, getParent } from '@/services/storage';
 
@@ -17,7 +18,7 @@ const INPUT_CLASS =
   'w-full bg-white dark:bg-echo-dark-card rounded-2xl px-4 py-3.5 font-inter text-[14px] text-echo-charcoal dark:text-white border-2';
 
 export function SignupScreen() {
-  const { hydrateUser } = useApp();
+  const { state, hydrateUser } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -75,6 +76,13 @@ export function SignupScreen() {
     setLoading(true);
     setError('');
     await completeAuth(await signUpWithEmail(email, password));
+  }
+
+  async function handleApple() {
+    if (loading) return;
+    setLoading(true);
+    setError('');
+    await completeAuth(await signInWithApple());
   }
 
   async function handleGoogle() {
@@ -170,16 +178,22 @@ export function SignupScreen() {
         </Pressable>
       </View>
 
-      {isGoogleConfigured && (
-        <>
-          <View className="flex-row items-center gap-3 my-5">
-            <View className="flex-1 h-px bg-echo-light-gray" />
-            <Text className="font-inter text-xs text-echo-gray">or</Text>
-            <View className="flex-1 h-px bg-echo-light-gray" />
-          </View>
+      <View className="flex-row items-center gap-3 my-5">
+        <View className="flex-1 h-px bg-echo-light-gray" />
+        <Text className="font-inter text-xs text-echo-gray">or</Text>
+        <View className="flex-1 h-px bg-echo-light-gray" />
+      </View>
+      <View className="gap-3">
+        <AppleButton
+          testID="signup-apple"
+          onPress={() => void handleApple()}
+          disabled={loading}
+          darkMode={state.darkMode}
+        />
+        {isGoogleConfigured && (
           <GoogleButton testID="signup-google" onPress={() => void handleGoogle()} disabled={loading} />
-        </>
-      )}
+        )}
+      </View>
 
       <View className="flex-row items-center justify-center mt-6">
         <Text className="font-inter text-xs text-echo-gray">Already have an account? </Text>

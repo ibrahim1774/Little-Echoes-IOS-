@@ -1,4 +1,6 @@
 import { GoogleSignin, isSuccessResponse } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 
 import { supabase } from './supabase';
 import { deleteAllMedia } from './files';
@@ -60,6 +62,56 @@ export async function signInWithGoogle(): Promise<AuthResult> {
     return { user: toUser(data.user), isNewUser: Date.now() - created < 60_000 };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Google sign-in failed.' };
+  }
+}
+
+/** Sign in with Apple is available on every supported iOS version, but check anyway. */
+export async function isAppleSignInAvailable(): Promise<boolean> {
+  try {
+    return await AppleAuthentication.isAvailableAsync();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Native Sign in with Apple → Supabase. Apple receives the SHA-256 of a random nonce;
+ * Supabase receives the raw nonce and checks it against the identity token.
+ */
+export async function signInWithApple(): Promise<AuthResult> {
+  try {
+    const rawNonce = Crypto.randomUUID();
+    const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+      nonce: hashedNonce,
+    });
+    if (!credential.identityToken) return { error: 'Apple did not return a sign-in token.' };
+
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: credential.identityToken,
+      nonce: rawNonce,
+    });
+    if (error) return { error: error.message };
+    if (!data.user) return { error: 'Could not sign in with Apple. Please try again.' };
+
+    // Apple only shares the name on the very first sign-in; keep it on the account.
+    const givenName = credential.fullName?.givenName;
+    if (givenName) {
+      await supabase.auth
+        .updateUser({ data: { full_name: [givenName, credential.fullName?.familyName].filter(Boolean).join(' '), given_name: givenName } })
+        .catch(() => {});
+    }
+
+    const created = new Date(data.user.created_at).getTime();
+    return { user: toUser(data.user), isNewUser: Date.now() - created < 60_000 };
+  } catch (err) {
+    if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') return { cancelled: true };
+    return { error: err instanceof Error ? err.message : 'Apple sign-in failed.' };
   }
 }
 
