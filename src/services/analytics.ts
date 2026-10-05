@@ -2,8 +2,10 @@
  * One place to send product events. Fans out to PostHog and AppsFlyer.
  * Every call is best-effort: analytics must never break the app.
  */
+import { AppState } from 'react-native';
 import appsFlyer from 'react-native-appsflyer';
 import PostHog from 'posthog-react-native';
+import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 
 const POSTHOG_KEY = process.env.EXPO_PUBLIC_POSTHOG_KEY;
 const POSTHOG_HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
@@ -36,26 +38,51 @@ export function initAnalytics(): void {
     }
   }
 
-  if (AF_DEV_KEY && AF_APP_ID) {
-    try {
-      void appsFlyer.init({ devKey: AF_DEV_KEY, appId: AF_APP_ID }).catch((err: unknown) =>
-        console.warn('[analytics] AppsFlyer init failed', err)
-      );
-      if (__DEV__) void appsFlyer.enableDebug({ enabled: true });
-      // Native never auto-starts; start once the session is ready.
-      appsFlyer.registerSessionReadyListener(() => {
-        appsFlyer.start().then(
-          () => {
-            appsFlyerReady = true;
-            if (pendingUserId) void appsFlyer.setCustomerUserId({ customerId: pendingUserId });
-          },
-          (err: unknown) => console.warn('[analytics] AppsFlyer start failed', err)
-        );
-      });
-    } catch (err) {
-      console.warn('[analytics] AppsFlyer setup failed', err);
-    }
+  if (AF_DEV_KEY && AF_APP_ID) void startAppsFlyer(AF_DEV_KEY, AF_APP_ID);
+}
+
+/**
+ * Ask for App Tracking Transparency before AppsFlyer starts (AppsFlyer v7 no longer
+ * waits for it). Whatever the answer, attribution runs; the IDFA is only read if allowed.
+ */
+async function startAppsFlyer(devKey: string, appId: string): Promise<void> {
+  try {
+    // iOS silently skips the prompt unless the app is in the foreground.
+    await whenActive();
+    await requestTrackingPermissionsAsync();
+  } catch (err) {
+    console.warn('[analytics] tracking permission request failed', err);
   }
+  try {
+    void appsFlyer.init({ devKey, appId }).catch((err: unknown) =>
+      console.warn('[analytics] AppsFlyer init failed', err)
+    );
+    if (__DEV__) void appsFlyer.enableDebug({ enabled: true });
+    // Native never auto-starts; start once the session is ready.
+    appsFlyer.registerSessionReadyListener(() => {
+      appsFlyer.start().then(
+        () => {
+          appsFlyerReady = true;
+          if (pendingUserId) void appsFlyer.setCustomerUserId({ customerId: pendingUserId });
+        },
+        (err: unknown) => console.warn('[analytics] AppsFlyer start failed', err)
+      );
+    });
+  } catch (err) {
+    console.warn('[analytics] AppsFlyer setup failed', err);
+  }
+}
+
+function whenActive(): Promise<void> {
+  if (AppState.currentState === 'active') return Promise.resolve();
+  return new Promise((resolve) => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        sub.remove();
+        resolve();
+      }
+    });
+  });
 }
 
 export function identifyUser(userId: string): void {

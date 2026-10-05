@@ -63,8 +63,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <SuperwallProvider
         apiKeys={{ ios: process.env.EXPO_PUBLIC_SUPERWALL_IOS_KEY! }}
-        // Development builds simulate purchases instead of talking to the App Store.
-        options={{ testModeBehavior: __DEV__ ? 'always' : 'automatic' }}
+        // Development builds simulate purchases. Release builds must always use real
+        // StoreKit: 'automatic' would enter test mode on a dashboard bundle-ID mismatch.
+        options={{ testModeBehavior: __DEV__ ? 'always' : 'never' }}
       >
         <AppProvider>
           <Shell />

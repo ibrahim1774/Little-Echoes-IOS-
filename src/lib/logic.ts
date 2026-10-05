@@ -134,7 +134,10 @@ export function resolveTier(
   activeEntitlementIds: string[],
   email: string | null | undefined
 ): { isPaid: boolean; tier: Tier | null } {
-  if (isAdmin(email) || activeEntitlementIds.includes('pro')) return { isPaid: true, tier: 'pro' };
+  // The admin override exists for testing only. Release builds unlock Pro solely through
+  // an in-app purchase (App Review guideline 3.1.1).
+  const adminOverride = typeof __DEV__ !== 'undefined' && __DEV__ && isAdmin(email);
+  if (adminOverride || activeEntitlementIds.includes('pro')) return { isPaid: true, tier: 'pro' };
   if (activeEntitlementIds.includes('basic')) return { isPaid: true, tier: 'basic' };
   return { isPaid: false, tier: null };
 }
