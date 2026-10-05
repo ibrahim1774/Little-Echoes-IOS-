@@ -54,12 +54,12 @@ const config: ExpoConfig = {
     ['expo-notifications', { color: '#FF6B6B' }],
     [
       'expo-tracking-transparency',
-      'expo-apple-authentication',
       {
         userTrackingPermission:
           'This lets us understand which ads bring families to Little Echoes. Your recordings are never shared.',
       },
     ],
+    'expo-apple-authentication',
     'expo-localization',
     '@react-native-community/datetimepicker',
     ['react-native-appsflyer', {}],
