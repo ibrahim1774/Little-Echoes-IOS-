@@ -7,7 +7,7 @@ import { useApp } from '@/context/AppContext';
 import { useSubscriptionReady } from '@/context/SubscriptionReady';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/links';
 import { shadows } from '@/lib/theme';
-import { signOut } from '@/services/auth';
+import { deleteAccount, signOut } from '@/services/auth';
 import { PLACEMENTS, usePaywall, useRestorePurchases } from '@/services/subscription';
 
 const BENEFITS = [
@@ -21,13 +21,16 @@ const BENEFITS = [
 /**
  * The hard gate. Superwall draws the plan picker; this screen sits behind it
  * so the user is never left on a blank page if the paywall is closed or fails.
+ * Restore, Terms, Privacy, Sign Out and Delete account stay reachable here
+ * without a subscription, as App Review requires.
  */
 export function PaywallScreen() {
   const { state } = useApp();
   const subscriptionReady = useSubscriptionReady();
   const { present, presenting, error } = usePaywall();
   const restore = useRestorePurchases();
-  const [busy, setBusy] = useState<'restore' | 'signout' | null>(null);
+  const [busy, setBusy] = useState<'restore' | 'signout' | 'delete' | null>(null);
+  const [deleteError, setDeleteError] = useState('');
   const autoPresented = useRef(false);
 
   const childName = state.activeChild?.name || state.children[0]?.name || '';
@@ -60,6 +63,34 @@ export function PaywallScreen() {
     await signOut(state.user);
     setBusy(null);
     router.replace('/');
+  }
+
+  function confirmDeleteAccount() {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account, all profiles, recordings and videos. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete account', style: 'destructive', onPress: () => void handleDeleteAccount() },
+      ]
+    );
+  }
+
+  async function handleDeleteAccount() {
+    setBusy('delete');
+    setDeleteError('');
+    try {
+      const result = await deleteAccount();
+      if (result.error) {
+        setDeleteError(result.error);
+        setBusy(null);
+        return;
+      }
+      router.replace('/');
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete the account. Please try again.');
+      setBusy(null);
+    }
   }
 
   return (
@@ -138,7 +169,17 @@ export function PaywallScreen() {
           <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_URL)}>
             <Text className="font-inter text-[11px] text-echo-gray underline">Privacy Policy</Text>
           </Pressable>
+          <Pressable testID="paywall-delete-account" accessibilityRole="button" disabled={busy !== null} onPress={confirmDeleteAccount}>
+            <Text className="font-inter text-[11px] text-echo-gray underline">
+              {busy === 'delete' ? 'Deleting…' : 'Delete Account'}
+            </Text>
+          </Pressable>
         </View>
+        {deleteError !== '' && (
+          <Text testID="paywall-delete-error" className="font-inter text-xs text-red-500 text-center">
+            {deleteError}
+          </Text>
+        )}
       </View>
     </Screen>
   );

@@ -17,6 +17,21 @@ let appsFlyerReady = false;
 let initialised = false;
 let pendingUserId: string | null = null;
 
+type AfEvent = { eventName: string; eventValues: Record<string, string | number | boolean | null> };
+// Events logged before AppsFlyer has started (ATT prompt still open, slow or offline start)
+// wait here instead of being dropped, so a trial or purchase is never lost. Bounded so a
+// session where AppsFlyer never starts can't grow it without limit.
+const MAX_PENDING_AF_EVENTS = 50;
+const pendingAfEvents: AfEvent[] = [];
+
+function logAppsFlyerEvent(event: AfEvent): void {
+  void appsFlyer.logEvent(event).catch(() => {});
+}
+
+function flushAppsFlyerEvents(): void {
+  for (const event of pendingAfEvents.splice(0)) logAppsFlyerEvent(event);
+}
+
 // AppsFlyer's standard event names, so ad networks recognise them.
 const APPSFLYER_EVENTS: Record<string, string> = {
   sign_up: 'af_complete_registration',
@@ -65,6 +80,7 @@ async function startAppsFlyer(devKey: string, appId: string): Promise<void> {
         () => {
           appsFlyerReady = true;
           if (pendingUserId) void appsFlyer.setCustomerUserId({ customerId: pendingUserId });
+          flushAppsFlyerEvents();
         },
         (err: unknown) => console.warn('[analytics] AppsFlyer start failed', err)
       );
@@ -126,7 +142,10 @@ export function track(event: string, props: Record<string, string | number | boo
   try {
     posthog?.capture(event, props);
     const afName = APPSFLYER_EVENTS[event];
-    if (appsFlyerReady && afName) void appsFlyer.logEvent({ eventName: afName, eventValues: props }).catch(() => {});
+    if (!afName) return;
+    const afEvent = { eventName: afName, eventValues: props };
+    if (appsFlyerReady) logAppsFlyerEvent(afEvent);
+    else if (AF_DEV_KEY && AF_APP_ID && pendingAfEvents.length < MAX_PENDING_AF_EVENTS) pendingAfEvents.push(afEvent);
   } catch (err) {
     console.warn('[analytics] track failed', err);
   }

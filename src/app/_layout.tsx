@@ -37,7 +37,10 @@ function Shell() {
       <SubscriptionBridge onReady={onReady} />
       <StatusBar style={state.darkMode ? 'light' : 'dark'} />
       <View className={`flex-1 ${state.darkMode ? 'dark' : ''}`}>
-        <Stack screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: state.darkMode ? '#1A1A2E' : '#FFF9F0' } }} />
+        <Stack screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: state.darkMode ? '#1A1A2E' : '#FFF9F0' } }}>
+          {/* The paywall is a gate, not a step to swipe back from (back would land on setup). */}
+          <Stack.Screen name="paywall" options={{ gestureEnabled: false }} />
+        </Stack>
       </View>
     </SubscriptionReadyContext.Provider>
   );
