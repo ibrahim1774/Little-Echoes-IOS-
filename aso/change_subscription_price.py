@@ -1,6 +1,8 @@
 """Change a subscription's price everywhere, from a US price (Apple's equalized prices elsewhere).
 
-Usage: python3 aso/change_subscription_price.py <subscriptionId> <usPrice> <startDate YYYY-MM-DD> [--usa-only | --skip-usa]
+Usage: python3 aso/change_subscription_price.py <subscriptionId> <usPrice> <startDate YYYY-MM-DD> [--usa-only | --skip-usa] [--replace-scheduled]
+
+Apple allows one scheduled price per territory; --replace-scheduled deletes those first.
 
 New prices start immediately and apply to existing subscribers too (preserveCurrentPrice false),
 so only use it when moving existing subscribers is intended.
@@ -29,7 +31,15 @@ def set_price(sub, point_id, territory, start):
     return s.startswith('HTTP 2'), errors(d)
 
 
+def clear_scheduled(sub):
+    scheduled = [p['id'] for p in all_pages(f'/v1/subscriptions/{sub}/prices?limit=200') if p['attributes'].get('startDate')]
+    failed = [i for i in scheduled if not asc('DELETE', f'/v1/subscriptionPrices/{i}')[0].startswith('HTTP 2')]
+    print(sub, 'scheduled prices removed:', len(scheduled) - len(failed), 'failed:', len(failed))
+
+
 def main(sub, price, start, usa_only):
+    if '--replace-scheduled' in sys.argv:
+        clear_scheduled(sub)
     point = us_point(sub, price)
     if '--skip-usa' not in sys.argv:
         ok, err = set_price(sub, point, 'USA', start)
