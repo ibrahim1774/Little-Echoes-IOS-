@@ -55,3 +55,4 @@ aso/screenshots/out/
 aso/screenshots/headings_part*.json
 
 .playwright-mcp/
+credentials.json

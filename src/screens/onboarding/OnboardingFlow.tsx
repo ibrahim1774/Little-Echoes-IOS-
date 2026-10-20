@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Keyboard, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
-import Reanimated, { FadeIn } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { ParentChildIllustration } from '@/components/illustrations/ParentChildIllustration';
@@ -116,7 +115,7 @@ function Title({ children }: { children: ReactNode }) {
   );
 }
 
-/** A question with four answers; the chosen one's reply fades in, then the flow moves on. */
+/** A question with four answers; picking one moves the flow on. */
 function PainScreen({
   question,
   name,
@@ -128,7 +127,6 @@ function PainScreen({
   selected?: string;
   onSelect: (id: string) => void;
 }) {
-  const choice = question.choices.find((c) => c.id === selected);
   return (
     <View className="flex-1 w-full gap-5 pt-2">
       <Title>{withName(question.title, name)}</Title>
@@ -165,13 +163,6 @@ function PainScreen({
           );
         })}
       </View>
-      {choice && (
-        <Reanimated.View key={choice.id} entering={FadeIn.duration(450)} className="px-2">
-          <Text testID="onboarding-reply" className="font-nunito-semibold text-[15px] leading-[22px] text-center text-echo-coral">
-            {choice.reply}
-          </Text>
-        </Reanimated.View>
-      )}
     </View>
   );
 }
@@ -187,7 +178,7 @@ export function OnboardingFlow() {
   const fade = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const moving = useRef(false);
-  // Picking an answer moves on after its reply has been read; one pending move at a time.
+  // Picking an answer moves on once the tick has shown; one pending move at a time.
   const autoAdvance = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (autoAdvance.current) clearTimeout(autoAdvance.current);
@@ -248,7 +239,7 @@ export function OnboardingFlow() {
       autoAdvance.current = null;
       if (questionId === PAIN_FUTURE.id) finish();
       else go(1);
-    }, 1400);
+    }, 500);
   }
 
   function saveName() {

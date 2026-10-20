@@ -67,6 +67,10 @@ const config: ExpoConfig = {
       ? [['@react-native-google-signin/google-signin', { iosUrlScheme: googleIosUrlScheme }] as [string, object]]
       : []),
   ],
+  // Over-the-air JavaScript updates reach installs of the same app version only;
+  // bump `version` whenever native code changes.
+  runtimeVersion: { policy: 'appVersion' },
+  updates: { url: 'https://u.expo.dev/dcf0a4bb-84dc-4fa9-94f2-03e2cb312c64' },
   experiments: { typedRoutes: true },
   extra: {
     eas: { projectId: 'dcf0a4bb-84dc-4fa9-94f2-03e2cb312c64' },
