@@ -54,9 +54,10 @@ export function VideoUpgradeScreen() {
       </View>
 
       <View className="bg-echo-coral/10 border-2 border-echo-coral/30 rounded-2xl p-4 mt-4 items-center">
-        <Text className="font-nunito-bold text-sm text-echo-coral">Pro — $9.99/month</Text>
+        {/* Prices come from the plan sheet, in the parent's own currency. */}
+        <Text className="font-nunito-bold text-sm text-echo-coral">Audio + Video</Text>
         <Text className="font-inter text-xs text-echo-gray mt-1 text-center">
-          Or $59.99/year. Same private cloud. Cancel anytime.
+          Monthly, or yearly to save. Same private cloud. Cancel anytime.
         </Text>
       </View>
 

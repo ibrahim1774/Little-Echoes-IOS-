@@ -7,9 +7,10 @@ WHY AN ACCOUNT IS REQUIRED
 Recordings are backed up to the parent's private cloud account so they are not lost with the phone and are available on the parent's other devices. The subscription works across the same account's devices.
 
 SUBSCRIPTIONS (all testable with a sandbox Apple ID)
-New users go through a short onboarding (a few questions, then short screen recordings of the app) and then see the "Choose your plan" sheet. The plan is chosen before an account is made: no sign-up or personal information is needed to subscribe. After subscribing, the parent creates an account so recordings can be backed up, then adds a child. Signing in with the demo account skips this. Three auto-renewable plans in one subscription group:
-- Basic Monthly ($4.99 a month): audio recordings only.
-- Pro Monthly ($9.99 a month) and Pro Yearly ($59.99 a year): audio plus daily video clips. Both include a 3-day free trial.
+New users go through a short onboarding (a few questions, then short screen recordings of the app) and then see the "Choose your plan" sheet. The plan is chosen before an account is made: no sign-up or personal information is needed to subscribe. After subscribing, the parent creates an account so recordings can be backed up, then adds a child. Signing in with the demo account skips this. Four auto-renewable plans in one subscription group:
+- Audio: Basic Monthly ($9 a month) or Basic Yearly ($86 a year). Audio recordings only.
+- Audio + Video: Pro Monthly ($19 a month) or Pro Yearly ($179 a year). Audio plus daily video clips. Both Pro plans include a 3-day free trial.
+The plan sheet has a Monthly / Yearly toggle that switches both plans.
 Price, billing period and trial terms are shown on the plan sheet with links to the Terms of Use (Apple standard EULA) and Privacy Policy. A subscription (or free trial) is required to use the app; there is no free tier. If you close the plan sheet, the screen behind it has See Plans, Restore Purchases, Terms of Use and Privacy Policy (plus Sign Out and Delete account when signed in), so all of these work without subscribing. They are also in Settings. To reach the rest of the app, start the Pro free trial with your sandbox Apple ID (no charge is made in sandbox).
 
 WHERE TO FIND FEATURES
