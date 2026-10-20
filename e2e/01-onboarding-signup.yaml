@@ -3,31 +3,108 @@ env:
   EMAIL: ${EMAIL}
   PASSWORD: ${PASSWORD}
 ---
-# Fresh user: onboarding → sign up → parent → child → paywall gate.
+# New parent: onboarding funnel → paywall → (subscribed) → create account → setup → home.
 - runFlow:
     file: _launch.yaml
     env:
       TIER_INDEX: 9
 - assertVisible: "Their little voice won't sound like this forever."
+- assertVisible:
+    id: 'onboarding-signin'
+- takeScreenshot: e2e/shots/01-hook
 - tapOn:
     id: 'onboarding-start'
-- assertVisible: 'What moment do you wish you could keep forever?'
+# Three pain questions: the reply appears once an answer is picked.
+- assertVisible: "What's the hardest part of watching them grow up?"
 - tapOn:
-    id: 'onboarding-emotion-1'
-- assertVisible: 'Record in seconds'
-- tapOn:
-    id: 'onboarding-continue'
-- assertVisible: 'Your voice time capsule'
-- tapOn:
-    id: 'onboarding-continue'
-- assertVisible: 'Share or keep forever'
+    id: 'onboarding-growing-0'
+- assertVisible:
+    id: 'onboarding-reply'
+- takeScreenshot: e2e/shots/01-pain-growing
 - tapOn:
     id: 'onboarding-continue'
-- assertVisible: 'Hear them grow up.*'
-- takeScreenshot: e2e/shots/01-onboarding-last
+- assertVisible: 'What have you already forgotten?'
 - tapOn:
-    id: 'onboarding-finish'
-- assertVisible: 'Create your account'
+    id: 'onboarding-forgotten-1'
+- tapOn:
+    id: 'onboarding-continue'
+- assertVisible: 'How does it feel when you realise a phase is over?'
+- tapOn:
+    id: 'onboarding-phase-0'
+# Back keeps the earlier answer.
+- tapOn:
+    id: 'onboarding-back'
+- assertVisible: 'What have you already forgotten?'
+- assertVisible:
+    id: 'onboarding-reply'
+- tapOn:
+    id: 'onboarding-continue'
+- tapOn:
+    id: 'onboarding-continue'
+# Name
+- assertVisible: 'Who are we saving memories for?'
+- tapOn:
+    id: 'onboarding-child-name'
+- inputText: 'Mia'
+- tapOn:
+    id: 'onboarding-continue'
+# Four screen recordings
+- assertVisible: "Record Mia's voice in 10 seconds."
+- assertVisible:
+    id: 'onboarding-demo-audio'
+- takeScreenshot: e2e/shots/01-demo-audio
+- tapOn:
+    id: 'onboarding-continue'
+- assertVisible: 'Included with Pro'
+- takeScreenshot: e2e/shots/01-demo-video
+- tapOn:
+    id: 'onboarding-continue'
+- assertVisible:
+    id: 'onboarding-demo-timeline'
+- tapOn:
+    id: 'onboarding-continue'
+- assertVisible: 'Hear Mia grow up.'
+- takeScreenshot: e2e/shots/01-demo-growth
+- tapOn:
+    id: 'onboarding-continue'
+# Reminder: picking a time asks for notification permission.
+- assertVisible: 'When should we remind you?'
+- tapOn:
+    id: 'onboarding-reminder-19:30'
+- takeScreenshot: e2e/shots/01-reminder
+- tapOn:
+    id: 'onboarding-continue'
+- runFlow:
+    when:
+      visible: 'Allow'
+    commands:
+      - tapOn: 'Allow'
+# Last question names the child, then the paywall.
+- extendedWaitUntil:
+    visible: 'What do you want Mia to have one day?'
+    timeout: 10000
+- tapOn:
+    id: 'onboarding-future-0'
+- takeScreenshot: e2e/shots/01-pain-future
+- tapOn:
+    id: 'onboarding-continue'
+- extendedWaitUntil:
+    visible: 'Give Mia proof of how loved they were|Choose your plan.*'
+    timeout: 20000
+- takeScreenshot: e2e/shots/01-paywall
+# Subscribing happens in Superwall's sheet; test mode can't drive a purchase, so relaunch as a
+# subscriber who quit before signing up. They must land on account creation, not onboarding.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- extendedWaitUntil:
+    visible:
+      id: 'signup-title'
+    timeout: 20000
+- assertVisible: "You're in! Now create your account"
+- assertVisible: "So Mia's memories are saved safely.*"
+- takeScreenshot: e2e/shots/02-signup
 # Validation: short password is rejected.
 - tapOn:
     id: 'signup-email'
@@ -46,14 +123,12 @@ env:
 - eraseText
 - inputText: ${PASSWORD}
 - pressKey: Enter
-- takeScreenshot: e2e/shots/02-signup
 - tapOn:
     id: 'signup-submit'
 - extendedWaitUntil:
     visible:
       id: 'parent-name'
     timeout: 20000
-- takeScreenshot: e2e/shots/03-parent-setup
 - tapOn:
     id: 'parent-name'
 - inputText: 'Testy'
@@ -65,15 +140,11 @@ env:
 - extendedWaitUntil:
     visible:
       id: 'child-name'
-    timeout: 10000
-- tapOn:
-    id: 'child-name'
-- inputText: 'Mia'
-- pressKey: Enter
+# The name from onboarding is already filled in.
+- assertVisible: 'Mia'
 - tapOn:
     id: 'child-birthdate'
-# Pick a birth year a few years back: ages 1–2 get free recording, the daily
-# questions (used by the session flow) start at age 3.
+# Pick a birth year a few years back: the daily questions start at age 3.
 - swipe:
     from: '2026'
     direction: DOWN
@@ -85,13 +156,9 @@ env:
 - takeScreenshot: e2e/shots/04-add-child
 - tapOn:
     id: 'child-submit'
+# Already subscribed: straight into the app.
 - extendedWaitUntil:
     visible:
-      id: 'paywall-see-plans'
+      id: 'home-greeting'
     timeout: 30000
-- takeScreenshot: e2e/shots/05-paywall
-- tapOn:
-    id: 'paywall-see-plans'
-- waitForAnimationToEnd:
-    timeout: 4000
-- takeScreenshot: e2e/shots/06-paywall-after-see-plans
+- takeScreenshot: e2e/shots/05-home

@@ -9,6 +9,7 @@ import { useApp } from '@/context/AppContext';
 import { calcAgeGroup, toDateStr } from '@/lib/logic';
 import { colors, shadows } from '@/lib/theme';
 import { syncToCloud } from '@/services/cloudSync';
+import { getOnboardingAnswers } from '@/services/onboardingAnswers';
 import { saveChild } from '@/services/storage';
 import type { ChildProfile } from '@/types';
 
@@ -84,6 +85,13 @@ export function AddChild() {
   const [birthdate, setBirthdate] = useState('');
   const [avatar, setAvatar] = useState('👧');
   const [schoolName, setSchoolName] = useState('');
+  // The first child's name was given during onboarding.
+  useEffect(() => {
+    if (fromSettings) return;
+    void getOnboardingAnswers().then((a) => {
+      if (a.childName) setName((current) => current || a.childName!);
+    });
+  }, [fromSettings]);
   const [error, setError] = useState('');
   const [showConfetti, setShowConfetti] = useState(false);
   const [showPicker, setShowPicker] = useState(false);

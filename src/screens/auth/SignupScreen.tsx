@@ -10,6 +10,7 @@ import { colors, shadows } from '@/lib/theme';
 import { track } from '@/services/analytics';
 import { isGoogleConfigured, signInWithApple, signInWithGoogle, signUpWithEmail, type AuthResult } from '@/services/auth';
 import { syncToCloud } from '@/services/cloudSync';
+import { getOnboardingAnswers } from '@/services/onboardingAnswers';
 import { getChildren, getParent } from '@/services/storage';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -27,6 +28,10 @@ export function SignupScreen() {
   const [focused, setFocused] = useState<'email' | 'password' | null>(null);
   const passwordRef = useRef<TextInput>(null);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [childName, setChildName] = useState('');
+  useEffect(() => {
+    void getOnboardingAnswers().then((a) => setChildName(a.childName ?? ''));
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -40,7 +45,11 @@ export function SignupScreen() {
       return;
     }
     if ('error' in result) {
-      setError(result.error);
+      setError(
+        /already (registered|exists)/i.test(result.error)
+          ? 'This email already has an account. Tap "I already have an account" to sign in.'
+          : result.error
+      );
       setLoading(false);
       return;
     }
@@ -107,12 +116,14 @@ export function SignupScreen() {
   return (
     <Screen className="px-6 pt-12 pb-10">
       <View className="items-center mb-8">
-        <Text className="text-4xl leading-[46px] mb-3">👋</Text>
-        <Text className="font-nunito-extrabold text-2xl text-center text-echo-charcoal dark:text-white">
-          Create your account
+        <Text className="text-4xl leading-[46px] mb-3">{state.isPaid ? '🎉' : '👋'}</Text>
+        <Text testID="signup-title" className="font-nunito-extrabold text-2xl text-center text-echo-charcoal dark:text-white">
+          {state.isPaid ? "You're in! Now create your account" : 'Create your account'}
         </Text>
         <Text className="font-inter text-sm text-center text-echo-gray mt-1">
-          Your echoes will be saved securely to the cloud.
+          {childName
+            ? `So ${childName}'s memories are saved safely and come back on any phone.`
+            : 'Your echoes will be saved securely to the cloud.'}
         </Text>
       </View>
 
@@ -195,18 +206,15 @@ export function SignupScreen() {
         )}
       </View>
 
-      <View className="flex-row items-center justify-center mt-6">
-        <Text className="font-inter text-xs text-echo-gray">Already have an account? </Text>
-        <Pressable
-          testID="signup-signin-link"
-          accessibilityRole="button"
-          hitSlop={8}
-          onPress={() => router.push('/signin')}
-          className="active:opacity-80"
-        >
-          <Text className="font-inter-semibold text-xs text-echo-coral">Sign in</Text>
-        </Pressable>
-      </View>
+      {/* Reinstalls and returning subscribers land here; signing in must be obvious. */}
+      <Pressable
+        testID="onboarding-signin"
+        accessibilityRole="button"
+        onPress={() => router.push('/signin')}
+        className="w-full mt-6 py-3.5 rounded-full border-2 border-echo-coral items-center active:opacity-80"
+      >
+        <Text className="font-nunito-bold text-base text-echo-coral">I already have an account</Text>
+      </Pressable>
     </Screen>
   );
 }

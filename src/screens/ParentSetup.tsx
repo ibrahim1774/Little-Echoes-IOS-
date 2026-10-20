@@ -7,6 +7,8 @@ import { Screen } from '@/components/Screen';
 import { useApp } from '@/context/AppContext';
 import { colors, shadows } from '@/lib/theme';
 import { syncToCloud } from '@/services/cloudSync';
+import { scheduleReminders } from '@/services/notifications';
+import { getOnboardingAnswers, type OnboardingAnswers } from '@/services/onboardingAnswers';
 import { saveParent } from '@/services/storage';
 import type { ParentProfile } from '@/types';
 
@@ -30,14 +32,16 @@ export function ParentSetup() {
 
     // Coming back to this screen edits the same profile instead of adding a second one.
     const existing = state.parent;
+    // Reminders as chosen during onboarding; they're scheduled once the profile loads.
+    const answers = await getOnboardingAnswers().catch(() => ({}) as OnboardingAnswers);
     const parent: ParentProfile = {
       id: existing?.id ?? Crypto.randomUUID(),
       name: name.trim(),
       avatarEmoji: avatar,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       settings: existing?.settings ?? {
-        reminderTime: '18:00',
-        reminderDays: ['mon', 'tue', 'wed', 'thu', 'fri'],
+        reminderTime: answers.reminderTime ?? '18:00',
+        reminderDays: answers.reminderDays ?? ['mon', 'tue', 'wed', 'thu', 'fri'],
         darkMode: false,
         questionMode: 'fresh',
         selectedQuestionIds: [],
@@ -47,6 +51,8 @@ export function ParentSetup() {
     try {
       await saveParent(parent);
       dispatch({ type: 'SET_PARENT', payload: parent });
+      // Permission was asked during onboarding; without it this schedules nothing.
+      void scheduleReminders(parent.settings).catch(() => {});
       if (state.user) void syncToCloud(state.user);
       dispatch({ type: 'SET_ONBOARDED', payload: false }); // still need child
       router.push('/setup/child');

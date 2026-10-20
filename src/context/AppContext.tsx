@@ -4,7 +4,7 @@ import { colorScheme } from 'nativewind';
 import { loadFromCloud, syncToCloud } from '@/services/cloudSync';
 import { ensureSeeded } from '@/services/db';
 import { scheduleReminders } from '@/services/notifications';
-import { getChildren, getParent, getStreak, getTodaySession, getTodayVideo } from '@/services/storage';
+import { getChildren, getParent, getStreak, getTodaySession, getTodayVideo, INSTALL_MARKER, kvGet, kvSet } from '@/services/storage';
 import { supabase } from '@/services/supabase';
 import { identifyUser } from '@/services/analytics';
 import type { AppAction, AppState, AuthUser } from '@/types';
@@ -137,6 +137,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Local data first so the app opens instantly and works offline.
         await reloadLocal();
         try {
+          // Deleting the app leaves its sign-in behind in the Keychain. A fresh install (no marker
+          // and no family on this device) starts signed out; an update keeps the parent signed in.
+          if (!(await kvGet(INSTALL_MARKER))) {
+            if (!(await getParent())) await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+            await kvSet(INSTALL_MARKER, new Date().toISOString());
+          }
           const { data } = await supabase.auth.getSession();
           if (data.session?.user && !cancelled) {
             const user = { id: data.session.user.id, email: data.session.user.email ?? '' };

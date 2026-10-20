@@ -19,7 +19,10 @@ appId: com.ibrahim1774.littleechoes
 # The alert's button shares its label with the Settings button behind it.
 - tapOn:
     point: '50%,55%'
+# A subscriber without an account is asked to make one (or sign in), not shown onboarding again.
 - extendedWaitUntil:
     visible:
-      id: 'onboarding-start'
+      id: 'signup-title'
     timeout: 40000
+- assertVisible:
+    id: 'onboarding-signin'

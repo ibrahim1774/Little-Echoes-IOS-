@@ -141,10 +141,11 @@ export function usePaywall() {
   });
 
   const present = useCallback(
-    async (placement: Placement, onEntitled?: () => void) => {
+    // `params` reach the paywall's text, e.g. {{ params.childName }} in the Superwall editor.
+    async (placement: Placement, onEntitled?: () => void, params?: Record<string, string>) => {
       setError(null);
       try {
-        await registerPlacement({ placement, feature: onEntitled });
+        await registerPlacement({ placement, feature: onEntitled, params });
       } catch (err) {
         if (__DEV__) console.warn('[usePaywall] register failed', err);
         setError(LOAD_PLANS_ERROR);

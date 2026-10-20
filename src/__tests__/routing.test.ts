@@ -17,8 +17,12 @@ const parent = { id: 'p' } as ParentProfile;
 const child = { id: 'c' } as ChildProfile;
 
 describe('destinationFor', () => {
-  it('sends signed-out users to onboarding even if local data or a subscription exists', () => {
-    expect(destinationFor({ user: null, parent, children: [child], isPaid: true })).toBe('/onboarding');
+  it('sends signed-out users to onboarding, which ends at the paywall', () => {
+    expect(destinationFor({ user: null, parent: null, children: [], isPaid: false })).toBe('/onboarding');
+    expect(destinationFor({ user: null, parent, children: [child], isPaid: false })).toBe('/onboarding');
+  });
+  it('sends a signed-out subscriber (paid, then quit before signing up, or reinstalled) to sign-up', () => {
+    expect(destinationFor({ user: null, parent: null, children: [], isPaid: true })).toBe('/signup');
   });
   it('walks setup in order', () => {
     expect(destinationFor({ user, parent: null, children: [], isPaid: false })).toBe('/setup/parent');
@@ -61,8 +65,12 @@ describe('gateFor', () => {
     expect(gateFor({ ...setUp, isPaid: false, isLoading: false }, true)).toBe('/paywall');
   });
 
-  it('never lets a signed-out user into the app, even with a subscription on the device', () => {
-    expect(gateFor({ user: null, parent, children: [child], isPaid: true, isLoading: false }, true)).toBe('/onboarding');
+  it('never lets a signed-out user into the app; a subscriber is sent to make or sign in to an account', () => {
+    expect(gateFor({ user: null, parent, children: [child], isPaid: true, isLoading: false }, true)).toBe('/signup');
+  });
+
+  it("starts onboarding at once for a new user, without waiting on the subscription status", () => {
+    expect(gateFor({ user: null, parent: null, children: [], isPaid: false, isLoading: false }, false)).toBe('/onboarding');
   });
 });
 
@@ -84,10 +92,10 @@ describe('subscription state', () => {
     user,
   };
 
-  it('keeps the device subscription across sign-out but still requires sign-in', () => {
+  it('keeps the device subscription across sign-out but still requires an account', () => {
     const signedOut = reducer(signedInSubscriber, { type: 'RESET' });
     expect(signedOut.isPaid).toBe(true);
-    expect(gateFor(signedOut, true)).toBe('/onboarding');
+    expect(gateFor(signedOut, true)).toBe('/signup');
   });
 
   it('locks again when the subscription expires', () => {

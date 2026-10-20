@@ -9,6 +9,8 @@ import { PRIVACY_URL, TERMS_URL } from '@/lib/links';
 import { shadows } from '@/lib/theme';
 import { deleteAccount } from '@/services/auth';
 import { signOutSafely } from '@/screens/auth/signOutSafely';
+import { getOnboardingAnswers, type OnboardingAnswers } from '@/services/onboardingAnswers';
+import { paywallHeadline } from '@/screens/onboarding/content';
 import { PLACEMENTS, usePaywall, useRestorePurchases } from '@/services/subscription';
 
 const BENEFITS = [
@@ -34,23 +36,28 @@ export function PaywallScreen() {
   const [deleteError, setDeleteError] = useState('');
   const autoPresented = useRef(false);
 
-  const childName = state.activeChild?.name || state.children[0]?.name || '';
+  // Before sign-up there are no children yet; onboarding asked for the first name.
+  const [answers, setAnswers] = useState<OnboardingAnswers | null>(null);
+  useEffect(() => {
+    void getOnboardingAnswers().then(setAnswers, () => setAnswers({}));
+  }, []);
+  const childName = state.activeChild?.name || state.children[0]?.name || answers?.childName || '';
+  // Read by the Superwall paywall as {{ params.childName }} and {{ params.headline }}.
+  const paywallParams = { childName: childName || 'your little one', headline: paywallHeadline(answers?.pains?.future, childName) };
 
   // Subscribed (purchase, restore, or already active) → into the app.
   useEffect(() => {
     if (state.isPaid) router.replace('/');
   }, [state.isPaid]);
 
+  // Show the plans straight away, once. New users see this before they have an account.
   useEffect(() => {
-    if (!state.user) router.replace('/');
-  }, [state.user]);
-
-  // Show the plans straight away, once.
-  useEffect(() => {
-    if (autoPresented.current || !subscriptionReady || state.isPaid || !state.user) return;
+    if (autoPresented.current || !subscriptionReady || state.isPaid || !answers) return;
     autoPresented.current = true;
-    void present(PLACEMENTS.onboarding);
-  }, [subscriptionReady, state.isPaid, state.user, present]);
+    void present(PLACEMENTS.onboarding, undefined, paywallParams);
+    // paywallParams is derived from answers, which this waits for.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscriptionReady, state.isPaid, present, answers]);
 
   async function handleRestore() {
     setBusy('restore');
@@ -99,7 +106,7 @@ export function PaywallScreen() {
       <View className="items-center gap-2">
         <Text className="text-4xl">🎙️</Text>
         <Text className="font-nunito-extrabold text-[24px] leading-tight text-echo-charcoal dark:text-white text-center">
-          One last step before{childName ? ` ${childName}'s` : ' your'} memories begin
+          {answers?.pains?.future ? paywallParams.headline : `One last step before${childName ? ` ${childName}'s` : ' your'} memories begin`}
         </Text>
         <Text className="font-inter text-sm text-echo-gray leading-relaxed text-center">
           Choose a plan to start preserving their voice forever.
@@ -133,7 +140,7 @@ export function PaywallScreen() {
           testID="paywall-see-plans"
           accessibilityRole="button"
           disabled={presenting || !subscriptionReady}
-          onPress={() => void present(PLACEMENTS.onboarding)}
+          onPress={() => void present(PLACEMENTS.onboarding, undefined, paywallParams)}
           className={`w-full py-4 rounded-full bg-echo-coral items-center active:opacity-80 ${
             presenting || !subscriptionReady ? 'opacity-60' : ''
           }`}
@@ -156,11 +163,17 @@ export function PaywallScreen() {
               {busy === 'restore' ? 'Restoring…' : 'Restore Purchases'}
             </Text>
           </Pressable>
-          <Pressable testID="paywall-signout" accessibilityRole="button" disabled={busy !== null} onPress={() => void handleSignOut()}>
-            <Text className="font-inter-semibold text-xs text-echo-gray">
-              {busy === 'signout' ? 'Signing out…' : 'Sign Out'}
-            </Text>
-          </Pressable>
+          {state.user ? (
+            <Pressable testID="paywall-signout" accessibilityRole="button" disabled={busy !== null} onPress={() => void handleSignOut()}>
+              <Text className="font-inter-semibold text-xs text-echo-gray">
+                {busy === 'signout' ? 'Signing out…' : 'Sign Out'}
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable testID="paywall-signin" accessibilityRole="button" onPress={() => router.push('/signin')}>
+              <Text className="font-inter-semibold text-xs text-echo-gray">Already subscribed? Sign in</Text>
+            </Pressable>
+          )}
         </View>
 
         <View className="flex-row justify-center gap-5">
@@ -170,11 +183,13 @@ export function PaywallScreen() {
           <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_URL)}>
             <Text className="font-inter text-[11px] text-echo-gray underline">Privacy Policy</Text>
           </Pressable>
-          <Pressable testID="paywall-delete-account" accessibilityRole="button" disabled={busy !== null} onPress={confirmDeleteAccount}>
-            <Text className="font-inter text-[11px] text-echo-gray underline">
-              {busy === 'delete' ? 'Deleting…' : 'Delete Account'}
-            </Text>
-          </Pressable>
+          {state.user && (
+            <Pressable testID="paywall-delete-account" accessibilityRole="button" disabled={busy !== null} onPress={confirmDeleteAccount}>
+              <Text className="font-inter text-[11px] text-echo-gray underline">
+                {busy === 'delete' ? 'Deleting…' : 'Delete Account'}
+              </Text>
+            </Pressable>
+          )}
         </View>
         {deleteError !== '' && (
           <Text testID="paywall-delete-error" className="font-inter text-xs text-red-500 text-center">

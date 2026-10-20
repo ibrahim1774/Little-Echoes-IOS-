@@ -22,6 +22,9 @@ const byCreatedAsc = <T extends { createdAt: string }>(a: T, b: T) => -byCreated
 
 // ── Key/value (small flags and caches) ────────────────────────
 
+/** Set on first launch. The local database goes when the app is deleted; iOS's Keychain doesn't. */
+export const INSTALL_MARKER = 'installedAt';
+
 export async function kvGet(key: string): Promise<string | null> {
   const row = await getStore().get<{ value: string }>('kv', key);
   return row?.value ?? null;
@@ -88,6 +91,8 @@ export async function getCustomQuestions(parentId: string): Promise<Question[]> 
  */
 export async function clearAllData(): Promise<void> {
   const s = getStore();
+  // The install marker belongs to the app install, not to the family.
+  const installed = await kvGet(INSTALL_MARKER);
   await Promise.all([
     s.clear('parents'),
     s.clear('children'),
@@ -97,6 +102,7 @@ export async function clearAllData(): Promise<void> {
     s.clear('videos'),
     s.clear('kv'),
   ]);
+  if (installed) await kvSet(INSTALL_MARKER, installed);
 }
 
 // ── Sessions ──────────────────────────────────────────────────

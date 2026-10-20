@@ -1,12 +1,17 @@
 import type { AppState } from '@/types';
 
-export type Destination = '/onboarding' | '/setup/parent' | '/setup/child' | '/paywall' | '/home';
+export type Destination = '/onboarding' | '/signup' | '/setup/parent' | '/setup/child' | '/paywall' | '/home';
 
 type RoutingState = Pick<AppState, 'user' | 'parent' | 'children' | 'isPaid'>;
 
-/** Where a user in this state belongs. One rule for the whole app. */
+/**
+ * Where a user in this state belongs. One rule for the whole app.
+ * New users pay before they make an account: onboarding → paywall → sign up → setup → home.
+ */
 export function destinationFor(state: RoutingState): Destination {
-  if (!state.user) return '/onboarding';
+  // Signed out: a subscriber (paid but quit before signing up, or reinstalled) goes to sign-up,
+  // which also offers sign-in; everyone else starts onboarding, which ends at the paywall.
+  if (!state.user) return state.isPaid ? '/signup' : '/onboarding';
   if (!state.parent) return '/setup/parent';
   if (state.children.length === 0) return '/setup/child';
   if (!state.isPaid) return '/paywall';

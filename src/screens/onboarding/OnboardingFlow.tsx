@@ -1,298 +1,446 @@
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Pressable, ScrollView, Text, View, type ImageSourcePropType } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Animated, Easing, Keyboard, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
+import Reanimated, { FadeIn } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { ParentChildIllustration } from '@/components/illustrations/ParentChildIllustration';
 import { Screen } from '@/components/Screen';
 import { useApp } from '@/context/AppContext';
 import { destinationFor } from '@/lib/routing';
-import { shadows } from '@/lib/theme';
+import { colors, shadows } from '@/lib/theme';
 import { track } from '@/services/analytics';
+import { requestNotificationPermission } from '@/services/notifications';
+import { getOnboardingAnswers, saveOnboardingAnswers } from '@/services/onboardingAnswers';
 
-const TOTAL = 6;
+import {
+  EVERY_DAY,
+  PAIN_FORGOTTEN,
+  PAIN_FUTURE,
+  PAIN_GROWING,
+  PAIN_PHASE,
+  REMINDER_TIMES,
+  WEEKDAYS,
+  withName,
+  type PainQuestion,
+} from './content';
+import { DemoClip, type Callout } from './DemoClip';
 
-const EMOTION_OPTIONS = [
-  { icon: '🎤', text: "The way they say 'I love you'", color: '#FF6B6B' },
-  { icon: '😂', text: 'Their hilarious mispronunciations', color: '#FFD93D' },
-  { icon: '📖', text: 'Story time in their little voice', color: '#6BC5F8' },
-  { icon: '🎵', text: 'The songs they sing to themselves', color: '#C4A1FF' },
-];
+/** hook, 3 pains, name, 4 demos, reminder, future — then the paywall. */
+const STEPS = ['hook', 'growing', 'forgotten', 'phase', 'name', 'audio', 'video', 'timeline', 'growth', 'reminder', 'future'] as const;
+type Step = (typeof STEPS)[number];
 
-interface Shot {
-  source: ImageSourcePropType;
-  aspectRatio: number; // width / height of the screenshot
-}
-
-const FEATURES: (Shot & { title: string; desc: string })[] = [
-  {
-    source: require('../../../assets/images/IMG_3452.jpg'),
-    aspectRatio: 1290 / 2386,
-    title: 'Record in seconds',
-    desc: 'One tap to capture their voice. We handle the rest.',
-  },
-  {
-    source: require('../../../assets/images/IMG_3454.jpg'),
-    aspectRatio: 1290 / 2368,
-    title: 'Your voice time capsule',
-    desc: 'Organized by age, preserved forever.',
-  },
-  {
-    source: require('../../../assets/images/IMG_3455.jpg'),
-    aspectRatio: 1290 / 2418,
-    title: 'Share or keep forever',
-    desc: 'Play it back years from now. Share with grandparents anytime.',
-  },
-];
-
-const GROWTH_SHOT: Shot = {
-  source: require('../../../assets/images/IMG_3457.png'),
-  aspectRatio: 1290 / 1691,
+const PAINS: Partial<Record<Step, PainQuestion>> = {
+  growing: PAIN_GROWING,
+  forgotten: PAIN_FORGOTTEN,
+  phase: PAIN_PHASE,
+  future: PAIN_FUTURE,
 };
 
-const GROWTH_BULLETS = [
-  'Hear their 3-year-old voice next to their 5-year-old voice',
-  'Pick any time range — weekly, monthly, or yearly snapshots',
-  'The app picks the best moments for you automatically',
-  'A time machine for the voice you never want to forget',
-];
-
-function PhoneMockup({ shot, alt, width = 120, radius = 20 }: { shot: Shot; alt: string; width?: number; radius?: number }) {
-  return (
-    <View style={[shadows.soft, { width, borderRadius: radius }]} className="bg-white">
-      <View className="border-2 border-echo-light-gray overflow-hidden bg-white" style={{ borderRadius: radius }}>
-        <Image
-          source={shot.source}
-          accessibilityLabel={alt}
-          resizeMode="contain"
-          style={{ width: '100%', height: undefined, aspectRatio: shot.aspectRatio }}
-        />
-      </View>
-    </View>
-  );
+interface Demo {
+  title: string;
+  subtitle: string;
+  badge?: string;
+  video: number;
+  poster: number;
+  callouts: Callout[];
 }
 
-function PrimaryButton({ label, onPress, testID }: { label: string; onPress: () => void; testID: string }) {
+// Screen recordings of the real app (assets/onboarding), captured at 590×1282.
+const CLIP_ASPECT = 590 / 1282;
+const DEMOS: Partial<Record<Step, Demo>> = {
+  audio: {
+    title: "Record {name}'s voice in 10 seconds.",
+    subtitle: 'A new question every day. One tap to record their answer.',
+    video: require('../../../assets/onboarding/demo-audio.mp4'),
+    poster: require('../../../assets/onboarding/demo-audio.jpg'),
+    callouts: [
+      { from: 0, to: 3, text: "1  Today's question", top: 0.3 },
+      { from: 3, to: 8, text: '2  Tap once to record', top: 0.2, side: 'right' },
+      { from: 8, to: 12, text: '3  Saved. Next question!', top: 0.6 },
+    ],
+  },
+  video: {
+    title: 'Add the face behind the voice.',
+    subtitle: 'A 15-second video a day, next to their voice.',
+    badge: 'Included with Pro',
+    video: require('../../../assets/onboarding/demo-video.mp4'),
+    poster: require('../../../assets/onboarding/demo-video.jpg'),
+    callouts: [
+      { from: 0, to: 4.5, text: "1  Today's 15-second clip", top: 0.12 },
+      { from: 4.5, to: 9, text: '2  Watch it any time', top: 0.3, side: 'right' },
+    ],
+  },
+  timeline: {
+    title: 'Every memory, sorted by age.',
+    subtitle: 'Scroll back through every day you saved.',
+    video: require('../../../assets/onboarding/demo-timeline.mp4'),
+    poster: require('../../../assets/onboarding/demo-timeline.jpg'),
+    callouts: [
+      { from: 0, to: 3, text: '1  Every day you recorded', top: 0.22 },
+      { from: 3, to: 11.5, text: '2  Months of memories, one scroll', top: 0.5, side: 'right' },
+    ],
+  },
+  growth: {
+    title: 'Hear {name} grow up.',
+    subtitle: 'Play their voice from months ago next to today. It gives you chills.',
+    video: require('../../../assets/onboarding/demo-growth.mp4'),
+    poster: require('../../../assets/onboarding/demo-growth.jpg'),
+    callouts: [
+      { from: 0, to: 2.5, text: '1  Pick a time range', top: 0.15 },
+      { from: 2.5, to: 12, text: '2  Hear them grow, month by month', top: 0.42, side: 'right' },
+    ],
+  },
+};
+
+function PrimaryButton({ label, onPress, testID, disabled }: { label: string; onPress: () => void; testID: string; disabled?: boolean }) {
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
       onPress={onPress}
-      className="w-full bg-echo-coral py-4 rounded-full items-center active:opacity-80"
-      style={shadows.coral}
+      disabled={disabled}
+      className={`w-full py-4 rounded-full bg-echo-coral items-center active:opacity-80 ${disabled ? 'opacity-40' : ''}`}
+      style={disabled ? undefined : shadows.coral}
     >
       <Text className="font-nunito-bold text-base text-white">{label}</Text>
     </Pressable>
   );
 }
 
+function Title({ children }: { children: ReactNode }) {
+  return (
+    <Text className="font-nunito-extrabold text-[24px] leading-[30px] text-center text-echo-charcoal dark:text-white">
+      {children}
+    </Text>
+  );
+}
+
+/** A question with four answers; the chosen one's reply fades in below. */
+function PainScreen({
+  question,
+  name,
+  selected,
+  onSelect,
+  onContinue,
+  continueLabel,
+}: {
+  question: PainQuestion;
+  name: string;
+  selected?: string;
+  onSelect: (id: string) => void;
+  onContinue: () => void;
+  continueLabel: string;
+}) {
+  const choice = question.choices.find((c) => c.id === selected);
+  return (
+    <View className="flex-1 w-full gap-5 pt-2">
+      <Title>{withName(question.title, name)}</Title>
+      <View className="w-full gap-3">
+        {question.choices.map((c, i) => {
+          const isSelected = c.id === selected;
+          return (
+            <Pressable
+              key={c.id}
+              testID={`onboarding-${question.id}-${i}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              onPress={() => onSelect(c.id)}
+              className={`w-full flex-row items-center gap-3 bg-white dark:bg-echo-dark-card rounded-2xl px-4 py-4 border-2 active:opacity-90 ${
+                isSelected ? 'border-echo-coral' : 'border-transparent'
+              }`}
+              style={shadows.soft}
+            >
+              <View
+                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
+                  isSelected ? 'bg-echo-coral border-echo-coral' : 'border-echo-light-gray'
+                }`}
+              >
+                {isSelected && (
+                  <Svg width={12} height={12} viewBox="0 0 12 12" fill="none">
+                    <Path d="M2 6l3 3 5-5" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                )}
+              </View>
+              <Text className="flex-1 font-nunito-semibold text-[15px] leading-[21px] text-echo-charcoal dark:text-white">
+                {c.text}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {choice && (
+        <Reanimated.View key={choice.id} entering={FadeIn.duration(450)} className="px-2">
+          <Text testID="onboarding-reply" className="font-nunito-semibold text-[15px] leading-[22px] text-center text-echo-coral">
+            {choice.reply}
+          </Text>
+        </Reanimated.View>
+      )}
+      <View className="mt-auto pt-3 w-full">
+        <PrimaryButton testID="onboarding-continue" label={continueLabel} onPress={onContinue} disabled={!choice} />
+      </View>
+    </View>
+  );
+}
+
 export function OnboardingFlow() {
   const { state } = useApp();
-  const [screen, setScreen] = useState(0);
-  const [selectedEmotion, setSelectedEmotion] = useState<number | null>(null);
+  const { width } = useWindowDimensions();
+  const [index, setIndex] = useState(0);
+  const [childName, setChildName] = useState('');
+  const [pains, setPains] = useState<Record<string, string>>({});
+  const [reminderTime, setReminderTime] = useState('18:00');
+  const [everyDay, setEveryDay] = useState(true);
   const fade = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const advancing = useRef(false);
+  const moving = useRef(false);
 
-  const progress = screen / (TOTAL - 1);
+  const step = STEPS[index];
+  const name = childName.trim();
+
+  // Answers survive leaving and coming back (e.g. from sign-in).
+  useEffect(() => {
+    void getOnboardingAnswers().then((a) => {
+      if (a.childName) setChildName(a.childName);
+      if (a.pains) setPains(a.pains);
+      if (a.reminderTime) setReminderTime(a.reminderTime);
+      if (a.reminderDays) setEveryDay(a.reminderDays.length === 7);
+    });
+  }, []);
+
+  // A subscriber who never finished signing up (or reinstalled) goes to make their account.
+  useEffect(() => {
+    if (state.isPaid && !state.user) router.replace('/signup');
+  }, [state.isPaid, state.user]);
 
   useEffect(() => {
     Animated.timing(progressAnim, {
-      toValue: progress,
-      duration: 500,
+      toValue: index / (STEPS.length - 1),
+      duration: 450,
       easing: Easing.out(Easing.ease),
       useNativeDriver: false,
     }).start();
-  }, [progress, progressAnim]);
+  }, [index, progressAnim]);
 
-  useEffect(() => {
-    const pending = timers.current;
-    return () => pending.forEach(clearTimeout);
-  }, []);
-
-  function advance() {
-    if (advancing.current) return;
-    advancing.current = true;
-    Animated.timing(fade, { toValue: 0, duration: 210, useNativeDriver: true }).start(() => {
-      setScreen((s) => Math.min(s + 1, TOTAL - 1));
-      advancing.current = false;
+  function go(delta: 1 | -1) {
+    if (moving.current) return;
+    const next = index + delta;
+    if (next < 0 || next >= STEPS.length) return;
+    moving.current = true;
+    Keyboard.dismiss();
+    Animated.timing(fade, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
+      setIndex(next);
+      moving.current = false;
+      if (delta === 1) track('onboarding_step', { step: STEPS[next], index: next });
       Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
     });
   }
 
-  function handleEmotionSelect(index: number) {
-    if (selectedEmotion !== null) return;
-    setSelectedEmotion(index);
-    timers.current.push(setTimeout(advance, 400));
+  function choosePain(questionId: string, choiceId: string) {
+    const next = { ...pains, [questionId]: choiceId };
+    setPains(next);
+    void saveOnboardingAnswers({ pains: next });
+    track('onboarding_answer', { question: questionId, answer: choiceId });
   }
 
-  // After the intro, hand off to account creation; signed-in users resume setup.
+  function saveName() {
+    void saveOnboardingAnswers({ childName: name || undefined });
+    go(1);
+  }
+
+  async function saveReminder() {
+    const days = everyDay ? EVERY_DAY : WEEKDAYS;
+    await saveOnboardingAnswers({ reminderTime, reminderDays: days });
+    // Asked here, where the reason is on screen. Declining just means no reminders.
+    const granted = await requestNotificationPermission().catch(() => false);
+    track('onboarding_reminder', { time: reminderTime, days: days.length, granted });
+    go(1);
+  }
+
   function finish() {
     track('onboarding_completed');
-    if (!state.user) router.push('/signup');
+    // New users choose a plan before making an account; anyone signed in carries on where they were.
+    if (!state.user) router.push('/paywall');
     else router.replace(destinationFor(state));
   }
 
-  const feat = screen >= 2 && screen <= 4 ? FEATURES[screen - 2] : undefined;
+  const pain = PAINS[step];
+  const demo = DEMOS[step];
+  const clipWidth = Math.min(width * 0.58, 250);
 
   return (
     <Screen scroll={false}>
-      {/* Progress bar */}
-      <View className="h-1 bg-echo-light-gray">
-        <Animated.View
-          className="h-full bg-echo-coral"
-          style={{ width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }}
-        />
-      </View>
+      {/* Progress bar and back */}
+      {index > 0 && (
+        <View className="flex-row items-center gap-3 px-4 pt-2">
+          <Pressable
+            testID="onboarding-back"
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            hitSlop={10}
+            onPress={() => go(-1)}
+            className="p-1 active:opacity-70"
+          >
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={colors.gray} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M15 18l-6-6 6-6" />
+            </Svg>
+          </Pressable>
+          <View className="flex-1 h-1.5 rounded-full bg-echo-light-gray overflow-hidden">
+            <Animated.View
+              className="h-full bg-echo-coral rounded-full"
+              style={{ width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }}
+            />
+          </View>
+        </View>
+      )}
 
       <ScrollView
-        className="flex-1"
-        contentContainerClassName="grow px-6 pt-12 pb-10"
+        contentContainerClassName="grow px-6 pt-6 pb-8"
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <Animated.View
-          className="flex-1 items-center"
-          style={{
-            opacity: fade,
-            transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
-          }}
+          className="flex-1"
+          style={{ opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }}
         >
-          {/* ── SCREEN 1: Emotional Hook ── */}
-          {screen === 0 && (
-            <View className="flex-1 w-full items-center justify-center gap-5">
+          {step === 'hook' && (
+            <View className="flex-1 w-full items-center justify-center gap-5 pt-6">
               <ParentChildIllustration />
-
               <View className="max-w-xs gap-3">
                 <Text className="font-nunito-extrabold text-[28px] leading-[35px] text-center text-echo-charcoal dark:text-white">
-                  Their little voice won't sound like this forever.
+                  Their little voice won&apos;t sound like this forever.
                 </Text>
                 <Text className="font-nunito text-base leading-[26px] text-center text-echo-gray">
-                  LittleEchoes preserves your child's voice — every funny word, every sweet giggle — so you can hear it
-                  again in 10, 20, even 50 years.
+                  LittleEchoes keeps your child&apos;s voice, every funny word and every giggle, so you can hear it again in 10, 20,
+                  even 50 years.
                 </Text>
               </View>
-
-              <View className="w-full mt-4">
-                <PrimaryButton testID="onboarding-start" label="Start Saving Memories →" onPress={advance} />
-              </View>
-
-              <View className="flex-row items-center justify-center">
-                <Text className="font-inter text-xs text-echo-gray">Already have an account? </Text>
+              <View className="w-full mt-4 gap-3">
+                <PrimaryButton testID="onboarding-start" label="Start Saving Memories →" onPress={() => go(1)} />
                 <Pressable
                   testID="onboarding-signin"
                   accessibilityRole="button"
-                  hitSlop={8}
                   onPress={() => router.push('/signin')}
-                  className="active:opacity-80"
+                  className="w-full py-3.5 rounded-full border-2 border-echo-coral items-center active:opacity-80"
                 >
-                  <Text className="font-inter-semibold text-xs text-echo-coral">Sign in</Text>
+                  <Text className="font-nunito-bold text-base text-echo-coral">I already have an account</Text>
                 </Pressable>
               </View>
             </View>
           )}
 
-          {/* ── SCREEN 2: Emotional Question ── */}
-          {screen === 1 && (
-            <View className="flex-1 w-full gap-6 pt-4">
-              <Text className="font-nunito-extrabold text-[24px] leading-[30px] text-center text-echo-charcoal dark:text-white">
-                What moment do you wish you could keep forever?
-              </Text>
+          {pain && (
+            <PainScreen
+              question={pain}
+              name={name}
+              selected={pains[pain.id]}
+              onSelect={(id) => choosePain(pain.id, id)}
+              onContinue={step === 'future' ? finish : () => go(1)}
+              continueLabel={step === 'future' ? 'See my plan →' : step === 'phase' ? "That's exactly why we built this →" : 'Continue'}
+            />
+          )}
 
-              <View className="w-full gap-3">
-                {EMOTION_OPTIONS.map((opt, i) => {
-                  const isSelected = selectedEmotion === i;
-                  const isDimmed = selectedEmotion !== null && selectedEmotion !== i;
+          {step === 'name' && (
+            <View className="flex-1 w-full gap-5 pt-6">
+              <Title>Who are we saving memories for?</Title>
+              <Text className="font-inter text-sm text-center text-echo-gray">Just their first name. You can add more children later.</Text>
+              <View className="w-full rounded-2xl bg-white dark:bg-echo-dark-card" style={shadows.soft}>
+              <TextInput
+                testID="onboarding-child-name"
+                value={childName}
+                onChangeText={setChildName}
+                placeholder="Their first name"
+                placeholderTextColor={colors.gray}
+                autoCapitalize="words"
+                autoCorrect={false}
+                textContentType="givenName"
+                returnKeyType="next"
+                onSubmitEditing={saveName}
+                maxLength={30}
+                className="w-full px-5 py-4 font-nunito-bold text-[20px] text-center text-echo-charcoal dark:text-white"
+              />
+              </View>
+              <View className="mt-auto pt-3 w-full gap-3">
+                <PrimaryButton testID="onboarding-continue" label="Continue" onPress={saveName} disabled={!name} />
+                <Pressable testID="onboarding-name-skip" accessibilityRole="button" onPress={saveName} className="self-center p-2">
+                  <Text className="font-inter text-sm text-echo-gray">Skip for now</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {demo && (
+            <View className="flex-1 w-full items-center gap-4">
+              {demo.badge && (
+                <View className="bg-echo-lavender/20 rounded-full px-3 py-1">
+                  <Text className="font-nunito-bold text-xs text-echo-lavender">{demo.badge}</Text>
+                </View>
+              )}
+              <View className="gap-2 max-w-xs">
+                <Title>{withName(demo.title, name)}</Title>
+                <Text className="font-inter text-sm leading-[21px] text-center text-echo-gray">{demo.subtitle}</Text>
+              </View>
+              <DemoClip
+                testID={`onboarding-demo-${step}`}
+                video={demo.video}
+                poster={demo.poster}
+                aspectRatio={CLIP_ASPECT}
+                width={clipWidth}
+                callouts={demo.callouts}
+              />
+              <View className="mt-auto pt-3 w-full">
+                <PrimaryButton testID="onboarding-continue" label="Continue" onPress={() => go(1)} />
+              </View>
+            </View>
+          )}
+
+          {step === 'reminder' && (
+            <View className="flex-1 w-full gap-5 pt-2">
+              <Title>When should we remind you?</Title>
+              <Text className="font-inter text-sm text-center text-echo-gray">
+                A gentle nudge with a question to ask {name || 'your little one'}. Ten seconds is enough.
+              </Text>
+              <View className="flex-row flex-wrap justify-between" style={{ rowGap: 12 }}>
+                {REMINDER_TIMES.map((r) => {
+                  const on = r.time === reminderTime;
                   return (
                     <Pressable
-                      key={opt.text}
-                      testID={`onboarding-emotion-${i}`}
+                      key={r.time}
+                      testID={`onboarding-reminder-${r.time}`}
                       accessibilityRole="button"
-                      onPress={() => handleEmotionSelect(i)}
-                      className="w-full flex-row items-center gap-4 bg-white dark:bg-echo-dark-card rounded-2xl p-4 border-2 active:opacity-80"
-                      style={[
-                        shadows.soft,
-                        {
-                          borderColor: isSelected ? opt.color : 'transparent',
-                          opacity: isDimmed ? 0.4 : 1,
-                          transform: [{ scale: isSelected ? 0.97 : 1 }],
-                        },
-                      ]}
+                      accessibilityState={{ selected: on }}
+                      onPress={() => setReminderTime(r.time)}
+                      className={`bg-white dark:bg-echo-dark-card rounded-2xl py-4 items-center gap-1 border-2 ${
+                        on ? 'border-echo-coral' : 'border-transparent'
+                      }`}
+                      style={[shadows.soft, { width: '48%' }]}
                     >
-                      <View
-                        className="w-12 h-12 rounded-xl items-center justify-center"
-                        style={{ backgroundColor: opt.color + '22' }}
-                      >
-                        <Text className="text-2xl">{opt.icon}</Text>
-                      </View>
-                      <Text className="flex-1 font-nunito-semibold text-[15px] leading-[21px] text-echo-charcoal dark:text-white">
-                        {opt.text}
-                      </Text>
-                      {isSelected && (
-                        <View
-                          className="w-6 h-6 rounded-full items-center justify-center"
-                          style={{ backgroundColor: opt.color }}
-                        >
-                          <Svg width={12} height={12} viewBox="0 0 12 12" fill="none">
-                            <Path d="M2 6l3 3 5-5" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                          </Svg>
-                        </View>
-                      )}
+                      <Text className="text-2xl">{r.icon}</Text>
+                      <Text className="font-nunito-bold text-sm text-echo-charcoal dark:text-white">{r.label}</Text>
+                      <Text className="font-inter text-xs text-echo-gray">{formatTime(r.time)}</Text>
                     </Pressable>
                   );
                 })}
               </View>
-            </View>
-          )}
-
-          {/* ── SCREENS 3–5: Feature Pages ── */}
-          {feat && (
-            <View className="flex-1 w-full items-center gap-5 pt-2">
-              <Text className="font-nunito-bold text-xs text-echo-coral uppercase tracking-wider">
-                Step {screen - 1} of 3
-              </Text>
-              <PhoneMockup shot={feat} alt={feat.title} width={220} />
-              <View className="max-w-xs gap-2">
-                <Text className="font-nunito-extrabold text-[22px] leading-[28px] text-center text-echo-charcoal dark:text-white">
-                  {feat.title}
-                </Text>
-                <Text className="font-inter text-sm leading-[23px] text-center text-echo-gray">{feat.desc}</Text>
-              </View>
-              <View className="mt-auto pt-3 w-full">
-                <PrimaryButton testID="onboarding-continue" label="Tap to Continue" onPress={advance} />
-              </View>
-            </View>
-          )}
-
-          {/* ── SCREEN 6: Growth Showcase ── */}
-          {screen === 5 && (
-            <View className="flex-1 w-full items-center gap-4 pt-2">
-              <View className="max-w-xs gap-2">
-                <Text className="font-nunito-extrabold text-[24px] leading-[30px] text-center text-echo-charcoal dark:text-white">
-                  Hear them grow up.{'\n'}One voice at a time.
-                </Text>
-                <Text className="font-inter text-sm leading-[23px] text-center text-echo-gray">
-                  Play back their voice from 6 months ago. Then today. The difference will give you chills.
-                </Text>
-              </View>
-
-              <PhoneMockup shot={GROWTH_SHOT} alt="Voice Growth Timeline" width={180} radius={24} />
-
-              <View className="w-full gap-2.5">
-                {GROWTH_BULLETS.map((b) => (
-                  <View key={b} className="flex-row items-start gap-2.5">
-                    <View className="w-5 h-5 rounded-full bg-echo-coral/15 items-center justify-center mt-0.5">
-                      <Svg width={10} height={10} viewBox="0 0 12 12" fill="none">
-                        <Path d="M2 6l3 3 5-5" stroke="#FF6B6B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                      </Svg>
-                    </View>
-                    <Text className="flex-1 font-inter text-xs leading-[17px] text-echo-charcoal dark:text-white">{b}</Text>
-                  </View>
+              <View className="flex-row bg-white dark:bg-echo-dark-card rounded-full p-1" style={[shadows.soft, { alignSelf: 'center' }]}>
+                {[
+                  { label: 'Every day', value: true },
+                  { label: 'Weekdays', value: false },
+                ].map((o) => (
+                  <Pressable
+                    key={o.label}
+                    testID={`onboarding-days-${o.value ? 'all' : 'weekdays'}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: everyDay === o.value }}
+                    onPress={() => setEveryDay(o.value)}
+                    className={`px-5 py-2 rounded-full ${everyDay === o.value ? 'bg-echo-coral' : ''}`}
+                  >
+                    <Text className={`font-nunito-bold text-sm ${everyDay === o.value ? 'text-white' : 'text-echo-gray'}`}>{o.label}</Text>
+                  </Pressable>
                 ))}
               </View>
-
               <View className="mt-auto pt-3 w-full">
-                <PrimaryButton testID="onboarding-finish" label="Continue →" onPress={finish} />
+                <PrimaryButton testID="onboarding-continue" label="Remind me" onPress={() => void saveReminder()} />
               </View>
             </View>
           )}
@@ -300,4 +448,10 @@ export function OnboardingFlow() {
       </ScrollView>
     </Screen>
   );
+}
+
+function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${suffix}`;
 }
