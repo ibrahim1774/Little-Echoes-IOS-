@@ -69,6 +69,10 @@ export function SubscriptionBridge({ onReady }: { onReady: () => void }) {
     const status = subscriptionStatus?.status ?? 'UNKNOWN';
     const active = status === 'ACTIVE' ? (subscriptionStatus as { entitlements: { id: string }[] }).entitlements : [];
     const resolved = resolveTier(active.map((e) => e.id), email);
+    if (__DEV__) console.log('[subscription]', status, resolved);
+    // UNKNOWN is a passing state while Superwall configures or identifies the user. Treating it
+    // as "not subscribed" would bounce a subscriber to the paywall and back to Home.
+    if (status === 'UNKNOWN' && !resolved.isPaid && readyRef.current) return;
     dispatch({ type: 'SET_SUBSCRIPTION', payload: resolved });
     if (status !== 'UNKNOWN') {
       markReady();

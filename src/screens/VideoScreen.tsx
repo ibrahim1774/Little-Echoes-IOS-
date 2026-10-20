@@ -11,10 +11,11 @@ import { useApp } from '@/context/AppContext';
 import { formatDuration, isPlayableOnIOS, toDateStr } from '@/lib/logic';
 import { colors, shadows } from '@/lib/theme';
 import { track } from '@/services/analytics';
-import { deleteVideoFromCloud, ensureLocalVideo, syncToCloud } from '@/services/cloudSync';
+import { ensureLocalVideo, removeVideo, syncToCloud } from '@/services/cloudSync';
 import { deleteFile, persistMedia } from '@/services/files';
-import { deleteVideo, getTodayVideo, getVideosByChild, saveVideo } from '@/services/storage';
+import { getTodayVideo, getVideosByChild, saveVideo } from '@/services/storage';
 import type { VideoClip } from '@/types';
+import { claimPlayback, releasePlayback } from './memories/playback';
 
 const MAX_SECONDS = 15;
 const CAMERA_READY_TIMEOUT_MS = 6000;
@@ -22,6 +23,21 @@ const CAMERA_UNAVAILABLE = "The camera isn't available on this device.";
 
 function ClipPlayer({ uri }: { uri: string }) {
   const player = useVideoPlayer(uri);
+  const isFocused = useIsFocused();
+  // One thing sounds at a time across the app, and nothing keeps playing on another tab.
+  useEffect(() => {
+    const owner = { stop: () => player.pause() };
+    const sub = player.addListener('playingChange', ({ isPlaying }) => {
+      if (isPlaying) claimPlayback(owner);
+    });
+    return () => {
+      sub.remove();
+      releasePlayback(owner);
+    };
+  }, [player]);
+  useEffect(() => {
+    if (!isFocused) player.pause();
+  }, [isFocused, player]);
   return (
     <View className="w-full aspect-video rounded-2xl overflow-hidden bg-black">
       <VideoView player={player} nativeControls contentFit="contain" style={{ width: '100%', height: '100%' }} />
@@ -155,6 +171,24 @@ export function VideoScreen() {
     };
   }, [activeChild, phase, isFocused, dispatch]);
 
+  // A clip belongs to the child it was recorded for. Picking another child on Home before
+  // saving discards it, so it can't be saved under the wrong child.
+  const activeChildId = activeChild?.id;
+  const shownChildId = useRef(activeChildId);
+  useEffect(() => {
+    if (activeChildId === shownChildId.current) return;
+    shownChildId.current = activeChildId;
+    if (phase === 'preview' || phase === 'recording') {
+      abandonRecording();
+      if (clipUri) deleteFile(clipUri);
+      setClipUri(null);
+      setClipSeconds(0);
+      setCaption('');
+      setRecError(null);
+      setPhase('idle');
+    }
+  }, [activeChildId, phase, clipUri]);
+
   // Leaving the tab releases the camera, so an in-progress recording is dropped.
   useEffect(() => {
     if (!isFocused && phase === 'recording') {
@@ -255,12 +289,15 @@ export function VideoScreen() {
   async function handleSave() {
     if (!clipUri || !activeChild || saving) return;
     setSaving(true);
+    let movedUri: string | null = null;
 
     try {
       // Save locally first — instant, works offline. The upload happens in the
       // background via syncToCloud, which retries on the next sync if it fails.
       const id = Crypto.randomUUID();
       const localUri = persistMedia(clipUri, id, 'mp4');
+      movedUri = localUri;
+      const previous = await getTodayVideo(activeChild.id);
       const clip: VideoClip = {
         id,
         childId: activeChild.id,
@@ -272,6 +309,8 @@ export function VideoScreen() {
         createdAt: new Date().toISOString(),
       };
       await saveVideo(clip);
+      // One clip a day: the new one replaces today's earlier clip.
+      if (previous && previous.id !== clip.id) void removeVideo(state.user, previous.id);
 
       dispatch({ type: 'SET_TODAY_VIDEO_RECORDED', payload: true });
       setCaption('');
@@ -282,6 +321,8 @@ export function VideoScreen() {
       if (state.user) void syncToCloud(state.user);
     } catch (err) {
       console.error('[VideoSave] Local save failed:', err);
+      // The file was already moved; point the preview at it so Save can be retried.
+      if (movedUri) setClipUri(movedUri);
       Alert.alert(
         "Couldn't save the video",
         'Your device may be out of storage — try freeing up space and recording again.'
@@ -303,9 +344,7 @@ export function VideoScreen() {
             setTodayClip(null);
             dispatch({ type: 'SET_TODAY_VIDEO_RECORDED', payload: false });
           }
-          deleteFile(clip.localUri);
-          void deleteVideo(clip.id);
-          if (state.user) void deleteVideoFromCloud(state.user, clip.id, clip.videoUrl);
+          void removeVideo(state.user, clip.id);
         },
       },
     ]);

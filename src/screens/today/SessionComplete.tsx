@@ -17,6 +17,7 @@ import { CATEGORY_COLORS } from '@/data/questions';
 import { formatDuration } from '@/lib/logic';
 import { shadows } from '@/lib/theme';
 import type { Recording } from '@/types';
+import { categoryOf } from '../memories/helpers';
 import { GradientBackground } from './GradientBackground';
 
 interface Props {
@@ -148,7 +149,7 @@ export function SessionComplete({ recordings, childName }: Props) {
                 >
                   <View
                     className="w-2.5 h-2.5 rounded-full mt-1.5"
-                    style={{ backgroundColor: CATEGORY_COLORS[rec.questionId.split('-')[0]] ?? '#8E8E93' }}
+                    style={{ backgroundColor: CATEGORY_COLORS[categoryOf(rec)] ?? '#8E8E93' }}
                   />
                   <View className="flex-1">
                     <Text

@@ -1,0 +1,34 @@
+appId: com.ibrahim1774.littleechoes
+env:
+  MIA: ${MIA}
+  MIA_MIDNIGHT: ${MIA_MIDNIGHT}
+---
+- runFlow: _dismiss-superwall-panel.yaml
+# Signed in to the history family: a category chip shows that category's memories.
+- tapOn:
+    id: 'tab-home'
+- tapOn:
+    id: 'home-child-${MIA}'
+- tapOn:
+    id: 'tab-memories'
+- runFlow: _memories-reset.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'memories-timeline'
+    timeout: 20000
+- tapOn:
+    id: 'memories-category-emotions'
+- extendedWaitUntil:
+    visible:
+      id: 'recording-card-${MIA_MIDNIGHT}'
+    timeout: 5000
+- assertNotVisible: 'No echoes in this category yet.*'
+- takeScreenshot: e2e/shots/60-filter-emotions
+- tapOn:
+    id: 'memories-view-calendar'
+- assertNotVisible: 'No echoes in this category yet.*'
+- takeScreenshot: e2e/shots/61-filter-emotions-calendar
+- tapOn:
+    id: 'memories-view-timeline'
+- tapOn:
+    id: 'memories-category-all'

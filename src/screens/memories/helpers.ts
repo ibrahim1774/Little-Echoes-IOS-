@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
 import * as Sharing from 'expo-sharing';
 
-import { audioContentType, isFreeRecording, videoExt } from '@/lib/logic';
+import { audioContentType, isFreeRecording, toDateStr, videoExt } from '@/lib/logic';
 import { ensureLocalAudio, ensureLocalVideo } from '@/services/cloudSync';
 import type { Recording, RecordingSession, VideoClip } from '@/types';
 
@@ -71,8 +71,19 @@ export function ymd(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-export function categoryOf(rec: Recording): string {
-  return rec.questionId.split('-')[0];
+const CATEGORY_BY_PREFIX: Record<string, string> = {
+  fav: 'favorites',
+  cha: 'challenges',
+  emo: 'emotions',
+  lea: 'learning',
+  gra: 'gratitude',
+  free: 'free',
+};
+
+/** The category chip a recording belongs to ('' for custom questions, which only show under All). */
+export function categoryOf(rec: Pick<Recording, 'questionId' | 'questionText'>): string {
+  if (isFreeRecording(rec)) return 'free';
+  return CATEGORY_BY_PREFIX[rec.questionId.split('-')[0]] ?? '';
 }
 
 export function recordingTitle(rec: Recording): string {
@@ -92,8 +103,22 @@ export function buildGroups(sessions: RecordingSession[], recordings: Recording[
   }
   // One group per day: a parent can run several sessions (questions, free
   // recordings) on the same date, and they belong under one heading.
+  // A recording whose session row is missing (e.g. a sync cut short) still gets a day of its own.
+  const known = new Set(sessions.map((s) => s.id));
+  const orphans: RecordingSession[] = [];
+  for (const [sessionId, recs] of recordingMap) {
+    if (known.has(sessionId)) continue;
+    const first = recs.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
+    orphans.push({
+      id: sessionId,
+      childId: first.childId,
+      date: toDateStr(new Date(first.createdAt)),
+      createdAt: first.createdAt,
+      status: 'completed',
+    });
+  }
   const byDate = new Map<string, GroupedSession>();
-  for (const s of sessions) {
+  for (const s of [...sessions, ...orphans]) {
     const recs = recordingMap.get(s.id) ?? [];
     if (recs.length === 0) continue;
     const existing = byDate.get(s.date);
@@ -190,8 +215,8 @@ export function buildGrowthMontage(
       return d >= windowStart && d < windowEnd;
     });
     if (windowRecs.length > 0) {
-      // Pick using child ID + window index + shuffle seed
-      const seed = childId.length + w + shuffleSeed * 7;
+      // Pick using child ID + window index + shuffle seed; each Shuffle moves every window on by one.
+      const seed = childId.length + w + shuffleSeed;
       montage.push({
         rec: windowRecs[seed % windowRecs.length],
         windowStart,

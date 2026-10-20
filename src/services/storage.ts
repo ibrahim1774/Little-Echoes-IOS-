@@ -50,7 +50,11 @@ export async function saveParent(parent: ParentProfile): Promise<void> {
 
 export async function getChildren(parentId: string): Promise<ChildProfile[]> {
   const all = await getStore().all<ChildProfile>('children');
-  return all.filter((c) => c.parentId === parentId).sort(byCreatedAsc);
+  // Children grow up: the age group always follows the birthdate, not the value saved at sign-up.
+  return all
+    .filter((c) => c.parentId === parentId)
+    .sort(byCreatedAsc)
+    .map((c) => (c.birthdate ? { ...c, ageGroup: calcAgeGroup(c.birthdate) } : c));
 }
 
 export async function saveChild(child: ChildProfile): Promise<void> {

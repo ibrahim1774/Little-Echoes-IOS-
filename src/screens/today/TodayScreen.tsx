@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { router, useFocusEffect } from 'expo-router';
@@ -15,7 +15,7 @@ import { track } from '@/services/analytics';
 import { syncToCloud } from '@/services/cloudSync';
 import { deleteFile, persistMedia } from '@/services/files';
 import { scheduleReminders } from '@/services/notifications';
-import { saveRecording, saveSession, updateStreak } from '@/services/storage';
+import { getRecordingsBySession, getSessionsByChild, saveRecording, saveSession, updateStreak } from '@/services/storage';
 import type { Recording, RecordingSession } from '@/types';
 import { GradientBackground } from './GradientBackground';
 import { QuestionDisplay } from './QuestionDisplay';
@@ -41,8 +41,12 @@ export function TodayScreen() {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
 
-  // The tab stays mounted for the life of the app, so the session id is tied to a date.
-  const session = useRef({ id: state.todayProgress?.sessionId ?? generateId(), date: toDateStr() });
+  // The tab stays mounted for the life of the app, so a session belongs to one child on one date.
+  const session = useRef<{ id: string; date: string; childId?: string }>({
+    id: state.todayProgress?.sessionId ?? generateId(),
+    date: toDateStr(),
+    childId: state.todayProgress ? state.activeChild?.id : undefined,
+  });
   const [phase, setPhase] = useState<SessionPhase>(() => {
     if (!state.todayProgress) return { step: 'hub' };
     if (state.todayProgress.flow === 'free') return { step: 'free-recording' };
@@ -54,7 +58,24 @@ export function TodayScreen() {
   const [focused, setFocused] = useState(true);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
+  // Back is ignored while a take is being saved; the save would pull the parent back in.
+  const savingRef = useRef(false);
   const { activeChild, todayQuestions, parent } = state;
+
+  // Picking another child on Home ends this child's flow: their saved recordings stay in their
+  // own session, and a take that was never saved is discarded rather than filed under the new child.
+  const activeChildId = activeChild?.id;
+  const shownChildId = useRef(activeChildId);
+  useEffect(() => {
+    if (activeChildId === shownChildId.current) return;
+    shownChildId.current = activeChildId;
+    const current = phaseRef.current;
+    if (current.step === 'review' || current.step === 'free-review') deleteFile(current.uri);
+    session.current = { id: generateId(), date: toDateStr() };
+    setCollectedRecordings([]);
+    dispatch({ type: 'SET_TODAY_PROGRESS', payload: null });
+    setPhase({ step: 'hub' });
+  }, [activeChildId, dispatch]);
 
   // Leaving the tab stops any recording; coming back resumes from todayProgress,
   // as a remount does on the web.
@@ -100,22 +121,27 @@ export function TodayScreen() {
       ? todayQuestions[phase.questionIndex]
       : null;
 
-  /** Recordings carried into a new flow; a new day starts a new session. */
-  function beginFlow(): Recording[] {
-    if (session.current.date === toDateStr()) return collectedRecordings;
-    session.current = { id: generateId(), date: toDateStr() };
-    setCollectedRecordings([]);
-    return [];
+  /** Recordings carried into a new flow: this child's session for today, or a new one. */
+  async function beginFlow(): Promise<Recording[]> {
+    const today = toDateStr();
+    if (session.current.date === today && session.current.childId === child.id) return collectedRecordings;
+    // Resume an unfinished session; a completed one stays completed (streaks count it).
+    const existing = (await getSessionsByChild(child.id)).find((x) => x.date === today && x.status === 'in-progress');
+    session.current = { id: existing?.id ?? generateId(), date: today, childId: child.id };
+    const recordings = existing ? await getRecordingsBySession(existing.id) : [];
+    setCollectedRecordings(recordings);
+    return recordings;
   }
 
   function goBackToHub() {
+    if (savingRef.current) return;
     if (phase.step === 'review' || phase.step === 'free-review') deleteFile(phase.uri);
     dispatch({ type: 'SET_TODAY_PROGRESS', payload: null });
     setPhase({ step: 'hub' });
   }
 
-  function startQuestionFlow() {
-    const recordings = beginFlow();
+  async function startQuestionFlow() {
+    const recordings = await beginFlow();
     dispatch({
       type: 'SET_TODAY_PROGRESS',
       payload: { sessionId: session.current.id, questionIndex: 0, recordings, flow: 'questions' },
@@ -123,8 +149,8 @@ export function TodayScreen() {
     setPhase({ step: 'question', questionIndex: 0 });
   }
 
-  function startFreeRecording() {
-    const recordings = beginFlow();
+  async function startFreeRecording() {
+    const recordings = await beginFlow();
     dispatch({
       type: 'SET_TODAY_PROGRESS',
       payload: { sessionId: session.current.id, questionIndex: 0, recordings, flow: 'free' },
@@ -165,6 +191,7 @@ export function TodayScreen() {
   ): Promise<Recording | null> {
     const id = generateId();
     let localUri = tempUri;
+    savingRef.current = true;
 
     try {
       localUri = persistMedia(tempUri, id, 'm4a');
@@ -187,7 +214,7 @@ export function TodayScreen() {
       const inProgress: RecordingSession = {
         id: session.current.id,
         childId: child.id,
-        date: toDateStr(),
+        date: session.current.date,
         createdAt: new Date().toISOString(),
         status: 'in-progress',
       };
@@ -206,6 +233,8 @@ export function TodayScreen() {
       }
       Alert.alert('Could not save', 'The recording could not be saved. Please try again.');
       return null;
+    } finally {
+      savingRef.current = false;
     }
   }
 
@@ -214,7 +243,7 @@ export function TodayScreen() {
       const completedSession: RecordingSession = {
         id: session.current.id,
         childId: child.id,
-        date: toDateStr(),
+        date: session.current.date,
         createdAt: new Date().toISOString(),
         status: 'completed',
       };
@@ -434,7 +463,7 @@ export function TodayScreen() {
           {/* Answer Questions option — hidden for age 1-2 */}
           {child.ageGroup !== '1-2' && todayQuestions.length > 0 && (
             <Pressable
-              onPress={startQuestionFlow}
+              onPress={() => void startQuestionFlow()}
               accessibilityRole="button"
               testID="today-start-questions"
               className="w-full bg-white dark:bg-echo-dark-card rounded-2xl p-5 active:opacity-80"
@@ -459,7 +488,7 @@ export function TodayScreen() {
 
           {/* Free Recording option */}
           <Pressable
-            onPress={startFreeRecording}
+            onPress={() => void startFreeRecording()}
             accessibilityRole="button"
             testID="today-start-free"
             className="w-full bg-white dark:bg-echo-dark-card rounded-2xl p-5 active:opacity-80"

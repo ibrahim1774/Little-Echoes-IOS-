@@ -1,0 +1,20 @@
+appId: com.ibrahim1774.littleechoes
+env:
+  LINK: ${LINK}
+---
+# A reset link that was already used (or expired) explains itself and offers a new one.
+- openLink: ${LINK}
+- runFlow:
+    when:
+      visible: 'Open in .*Little Echoes.*'
+    commands:
+      - tapOn: 'Open'
+- extendedWaitUntil:
+    visible:
+      id: 'reset-invalid'
+    timeout: 15000
+- takeScreenshot: e2e/shots/94-reset-link-expired
+- tapOn:
+    id: 'reset-request-new'
+- assertVisible:
+    id: 'signin-forgot-password'

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 
 import { Screen } from '@/components/Screen';
@@ -9,6 +10,7 @@ import { CATEGORY_COLORS } from '@/data/questions';
 import { formatDuration } from '@/lib/logic';
 import { colors, shadows } from '@/lib/theme';
 import type { Question, Recording } from '@/types';
+import { claimPlayback, releasePlayback } from '../memories/playback';
 import { GradientBackground } from './GradientBackground';
 
 interface Props {
@@ -64,12 +66,18 @@ export function ReviewRecording({
   const categoryColor = isFreeRecording ? '#8E8E93' : question ? CATEGORY_COLORS[question.category] : '#FF6B6B';
   const isLast = isFreeRecording || questionIndex >= totalQuestions - 1;
 
+  // One thing sounds at a time across the app.
+  const owner = useRef({ stop: () => pausePlayback() }).current;
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      releasePlayback(owner);
     };
-  }, []);
+  }, [owner]);
+
+  // Leaving the Record tab pauses the take.
+  useFocusEffect(useCallback(() => () => owner.stop(), [owner]));
 
   // Rewind when playback ends so it can be played again.
   useEffect(() => {
@@ -84,6 +92,7 @@ export function ReviewRecording({
     try {
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
       if (status.duration > 0 && status.currentTime >= status.duration) await player.seekTo(0);
+      claimPlayback(owner);
       player.play();
     } catch {
       // playback unavailable — leave the button in its paused state

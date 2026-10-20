@@ -1,0 +1,11 @@
+appId: com.ibrahim1774.littleechoes
+---
+# Development builds: Superwall's test-mode panel can reappear after sign-in. Keep the
+# entitlement it shows and close it.
+- runFlow:
+    when:
+      visible: 'Starting Entitlements'
+    commands:
+      - tapOn: 'OK'
+      - waitForAnimationToEnd:
+          timeout: 3000

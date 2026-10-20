@@ -1,4 +1,4 @@
-import { buildGroups } from '@/screens/memories/helpers';
+import { applyFilter, buildGroups, categoryOf } from '@/screens/memories/helpers';
 import type { Recording, RecordingSession } from '@/types';
 
 jest.mock('expo-sharing', () => ({}));
@@ -17,5 +17,38 @@ describe('buildGroups', () => {
     );
     expect(groups.map((g) => g.session.date)).toEqual(['2026-10-04', '2026-10-03']);
     expect(groups[0].recordings.map((r) => r.id)).toEqual(['2', '1']);
+  });
+});
+
+describe('recordings whose session row is missing', () => {
+  it('still appear, under the day they were recorded', () => {
+    const groups = buildGroups([session('a', '2026-10-04')], [rec('1', 'a', '2026-10-04T09:00:00Z'), rec('2', 'lost', '2026-10-02T15:00:00Z')]);
+    expect(groups.map((g) => g.session.date)).toEqual(['2026-10-04', '2026-10-02']);
+    expect(groups[1].recordings.map((r) => r.id)).toEqual(['2']);
+  });
+});
+
+describe('category filters', () => {
+  const q = (questionId: string, questionText = 'q') => ({ questionId, questionText });
+  it.each([
+    ['fav-01', 'favorites'],
+    ['cha-09', 'challenges'],
+    ['emo-08', 'emotions'],
+    ['lea-07', 'learning'],
+    ['gra-06', 'gratitude'],
+    ['free-6f1c', 'free'],
+    ['custom-1792', ''],
+  ])('%s belongs to %s', (id, category) => {
+    expect(categoryOf(q(id))).toBe(category);
+  });
+
+  it('a free recording saved under its old label is still Free', () => {
+    expect(categoryOf(q('q-123', 'Custom audio'))).toBe('free');
+  });
+
+  it('Favorites shows favorites questions', () => {
+    const groups = buildGroups([session('a', '2026-10-04')], [rec('1', 'a', '2026-10-04T09:00:00Z')]);
+    expect(applyFilter(groups, 'favorites')).toHaveLength(1);
+    expect(applyFilter(groups, 'gratitude')).toHaveLength(0);
   });
 });

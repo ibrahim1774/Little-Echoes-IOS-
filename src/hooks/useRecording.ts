@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import {
   AudioModule,
   RecordingPresets,
@@ -139,6 +140,15 @@ export function useRecording(maxSeconds = 60) {
     setError(null);
     setRecordingState('idle');
   }, []);
+
+  // iOS pauses the recorder in the background while our clock keeps running, so leaving
+  // the app ends the take there; the parent comes back to review what was captured.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'background' && stateRef.current === 'recording') void stopRecording();
+    });
+    return () => sub.remove();
+  }, [stopRecording]);
 
   // Stop the mic if the screen goes away mid-recording.
   useEffect(() => {

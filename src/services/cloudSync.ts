@@ -3,7 +3,7 @@
  * cloudSync.ts so one account works on both clients.
  */
 import { supabase } from './supabase';
-import { deleteFile, downloadTo, fileExists, readBytes } from './files';
+import { deleteFile, downloadTo, fileExists, readBytes, resolveMediaUri } from './files';
 import {
   deleteRecording,
   deleteVideo,
@@ -15,6 +15,8 @@ import {
   getRecording,
   getStreak,
   getVideo,
+  kvGet,
+  kvSet,
   saveChild,
   saveParent,
   saveRecording,
@@ -38,9 +40,76 @@ import type { AuthUser, ChildProfile, ParentProfile, RecordingSession, Tier } fr
 
 const STORAGE_BUCKET = 'recordings';
 const VIDEO_BUCKET = 'videos';
+const PENDING_DELETES = 'pendingCloudDeletes';
 
 let syncing: Promise<void> | null = null;
 let syncAgain = false;
+
+// ── Deletes waiting to reach the cloud ────────────────────────
+// A delete is remembered on the device until the cloud confirms it, so a failed
+// delete is retried and the item isn't restored from the cloud in the meantime.
+
+interface PendingDelete {
+  kind: 'recording' | 'video';
+  id: string;
+  path?: string;
+}
+
+export async function getPendingDeletes(): Promise<PendingDelete[]> {
+  return parseJson<PendingDelete[]>(await kvGet(PENDING_DELETES)) ?? [];
+}
+
+async function setPendingDeletes(list: PendingDelete[]): Promise<void> {
+  await kvSet(PENDING_DELETES, JSON.stringify(list));
+}
+
+async function flushPendingDeletes(user: AuthUser): Promise<void> {
+  const pending = await getPendingDeletes();
+  if (pending.length === 0) return;
+  const left: PendingDelete[] = [];
+  for (const item of pending) {
+    const table = item.kind === 'recording' ? 'recordings' : 'videos';
+    const bucket = item.kind === 'recording' ? STORAGE_BUCKET : VIDEO_BUCKET;
+    try {
+      const { error } = await supabase.from(table).delete().eq('id', item.id).eq('user_id', user.id);
+      const removed = !error && (!item.path || !(await supabase.storage.from(bucket).remove([item.path])).error);
+      if (!removed) left.push(item);
+    } catch {
+      left.push(item);
+    }
+  }
+  // Deletes queued while this ran must survive.
+  const now = await getPendingDeletes();
+  const done = new Set(pending.filter((p) => !left.includes(p)).map((p) => p.id));
+  await setPendingDeletes(now.filter((p) => !done.has(p.id)));
+}
+
+/** Delete a recording here and in the cloud. */
+export async function removeRecording(user: AuthUser | null, recordingId: string): Promise<void> {
+  const rec = await getRecording(recordingId);
+  if (!rec) return;
+  deleteFile(rec.localUri);
+  await deleteRecording(recordingId);
+  await setPendingDeletes([...(await getPendingDeletes()), { kind: 'recording', id: rec.id, path: rec.audioUrl }]);
+  if (user) await flushPendingDeletes(user);
+}
+
+/** Delete a video here and in the cloud. */
+export async function removeVideo(user: AuthUser | null, videoId: string): Promise<void> {
+  const clip = await getVideo(videoId);
+  if (!clip) return;
+  deleteFile(clip.localUri);
+  await deleteVideo(videoId);
+  await setPendingDeletes([...(await getPendingDeletes()), { kind: 'video', id: clip.id, path: clip.videoUrl }]);
+  if (user) await flushPendingDeletes(user);
+}
+
+/** Merge this device's children into the cloud's list; a child is never dropped. */
+function mergeChildren(cloud: ChildProfile[], local: ChildProfile[]): ChildProfile[] {
+  const byId = new Map(cloud.filter((c) => c?.id).map((c) => [c.id, c]));
+  for (const c of local) byId.set(c.id, c);
+  return [...byId.values()];
+}
 
 /**
  * Upload profile, children, recordings, sessions and videos.
@@ -66,16 +135,30 @@ export function syncToCloud(user: AuthUser): Promise<void> {
 
 async function runSync(user: AuthUser): Promise<void> {
   try {
+    await flushPendingDeletes(user);
+
     const parent = await getParent();
     if (!parent) return;
     const children = await getChildren(parent.id);
 
-    const { error: profileError } = await supabase.from('profiles').upsert({
-      id: user.id,
-      parent: JSON.stringify(parent),
-      children: JSON.stringify(children),
-    });
-    if (profileError) console.warn('[syncToCloud] Profile upsert failed:', profileError.message);
+    // Read before writing: another device may have added children, and a failed read
+    // must never lead to overwriting the family with what this device happens to hold.
+    const { data: cloudProfile, error: readError } = await supabase
+      .from('profiles')
+      .select('children')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (readError) {
+      console.warn('[syncToCloud] Profile read failed; not writing it:', readError.message);
+    } else {
+      const cloudChildren = parseJson<ChildProfile[]>(cloudProfile?.children) ?? [];
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: user.id,
+        parent: JSON.stringify(parent),
+        children: JSON.stringify(mergeChildren(Array.isArray(cloudChildren) ? cloudChildren : [], children)),
+      });
+      if (profileError) console.warn('[syncToCloud] Profile upsert failed:', profileError.message);
+    }
 
     const recordings = await getAllRecordings();
     if (recordings.length > 0) {
@@ -101,6 +184,7 @@ async function runSync(user: AuthUser): Promise<void> {
       if (rows.length > 0) {
         const { error } = await supabase.from('recordings').upsert(rows);
         if (error) console.warn('[syncToCloud] Recordings upsert failed:', error.message);
+        else await markSynced(rows, getRecording, saveRecording);
       }
     }
 
@@ -136,10 +220,28 @@ async function runSync(user: AuthUser): Promise<void> {
       if (rows.length > 0) {
         const { error } = await supabase.from('videos').upsert(rows);
         if (error) console.warn('[syncToCloud] Videos upsert failed:', error.message);
+        else await markSynced(rows, getVideo, saveVideo);
       }
     }
+
+    // A delete made while this sync was uploading may have just been undone by the upsert.
+    await flushPendingDeletes(user);
   } catch (err) {
     console.warn('[syncToCloud] Sync failed:', err);
+  }
+}
+
+/** Remember that these rows are in the cloud, so a later absence means "deleted elsewhere". */
+async function markSynced<T extends { rowSynced?: boolean; audioUrl?: string; videoUrl?: string }>(
+  rows: { id: string; data: string }[],
+  get: (id: string) => Promise<T | undefined>,
+  save: (item: T) => Promise<void>
+): Promise<void> {
+  for (const row of rows) {
+    const current = await get(row.id);
+    const sent = parseJson<{ audioUrl?: string; videoUrl?: string }>(row.data);
+    // Only a row that carried the media path counts; otherwise the next sync must send it again.
+    if (current && !current.rowSynced && (sent?.audioUrl || sent?.videoUrl)) await save({ ...current, rowSynced: true });
   }
 }
 
@@ -149,9 +251,18 @@ async function runSync(user: AuthUser): Promise<void> {
  * deleted on another device, so they are removed here too. Items never uploaded
  * are kept — they are still waiting to sync.
  */
-export async function loadFromCloud(user: AuthUser): Promise<void> {
+export async function loadFromCloud(user: AuthUser): Promise<{ profileLoaded: boolean }> {
+  // A sync in flight may have uploaded files whose rows aren't written yet.
+  if (syncing) await syncing.catch(() => {});
+  let profileLoaded = false;
   try {
-    const { data } = await supabase.from('profiles').select('parent, children').eq('id', user.id).maybeSingle();
+    const pendingIds = new Set((await getPendingDeletes()).map((p) => p.id));
+    const { data, error: profileError } = await supabase
+      .from('profiles')
+      .select('parent, children')
+      .eq('id', user.id)
+      .maybeSingle();
+    profileLoaded = !profileError;
 
     if (data) {
       const parent = parseJson<ParentProfile>(data.parent);
@@ -169,14 +280,18 @@ export async function loadFromCloud(user: AuthUser): Promise<void> {
       const cloudIds = new Set<string>();
       for (const row of recordings) {
         cloudIds.add(row.id);
+        if (pendingIds.has(row.id)) continue;
         const incoming = rowToRecording(row);
         if (!incoming) continue;
         const existing = await getRecording(row.id);
-        if (!existing) await saveRecording(incoming);
-        else if (incoming.audioUrl && !existing.audioUrl) await saveRecording({ ...existing, audioUrl: incoming.audioUrl });
+        if (!existing) await saveRecording({ ...incoming, rowSynced: true });
+        else if (incoming.audioUrl && (!existing.audioUrl || !existing.rowSynced)) {
+          await saveRecording({ ...existing, audioUrl: existing.audioUrl ?? incoming.audioUrl, rowSynced: true });
+        }
       }
       for (const local of await getAllRecordings()) {
-        if (!cloudIds.has(local.id) && local.audioUrl) {
+        // Only something known to have been in the cloud can have been deleted there.
+        if (!cloudIds.has(local.id) && local.rowSynced) {
           deleteFile(local.localUri);
           await deleteRecording(local.id);
         }
@@ -202,14 +317,17 @@ export async function loadFromCloud(user: AuthUser): Promise<void> {
       const cloudIds = new Set<string>();
       for (const row of cloudVideos) {
         cloudIds.add(row.id);
+        if (pendingIds.has(row.id)) continue;
         const incoming = rowToVideo(row);
         if (!incoming) continue;
         const existing = await getVideo(row.id);
-        if (!existing) await saveVideo(incoming);
-        else if (incoming.videoUrl && !existing.videoUrl) await saveVideo({ ...existing, videoUrl: incoming.videoUrl });
+        if (!existing) await saveVideo({ ...incoming, rowSynced: true });
+        else if (incoming.videoUrl && (!existing.videoUrl || !existing.rowSynced)) {
+          await saveVideo({ ...existing, videoUrl: existing.videoUrl ?? incoming.videoUrl, rowSynced: true });
+        }
       }
       for (const local of await getAllVideos()) {
-        if (!cloudIds.has(local.id) && local.videoUrl) {
+        if (!cloudIds.has(local.id) && local.rowSynced) {
           deleteFile(local.localUri);
           await deleteVideo(local.id);
         }
@@ -218,6 +336,7 @@ export async function loadFromCloud(user: AuthUser): Promise<void> {
   } catch (err) {
     console.warn('[loadFromCloud] Load failed:', err);
   }
+  return { profileLoaded };
 }
 
 /** Streaks aren't stored in the cloud; derive them from completed sessions. */
@@ -235,24 +354,6 @@ async function rebuildStreaks(): Promise<void> {
     if (!existing || existing.lastRecordingDate < rebuilt.lastRecordingDate || existing.longestStreak < rebuilt.longestStreak) {
       await saveStreak(rebuilt);
     }
-  }
-}
-
-export async function deleteRecordingFromCloud(user: AuthUser, recordingId: string, audioUrl?: string): Promise<void> {
-  try {
-    await supabase.from('recordings').delete().eq('id', recordingId).eq('user_id', user.id);
-    if (audioUrl) await supabase.storage.from(STORAGE_BUCKET).remove([audioUrl]);
-  } catch {
-    // Best-effort
-  }
-}
-
-export async function deleteVideoFromCloud(user: AuthUser, videoId: string, videoUrl?: string): Promise<void> {
-  try {
-    await supabase.from('videos').delete().eq('id', videoId).eq('user_id', user.id);
-    if (videoUrl) await supabase.storage.from(VIDEO_BUCKET).remove([videoUrl]);
-  } catch {
-    // Best-effort
   }
 }
 
@@ -275,7 +376,7 @@ async function download(bucket: string, remotePath: string, id: string): Promise
 export async function ensureLocalAudio(recordingId: string): Promise<string | null> {
   const rec = await getRecording(recordingId);
   if (!rec) return null;
-  if (fileExists(rec.localUri)) return rec.localUri!;
+  if (fileExists(rec.localUri)) return resolveMediaUri(rec.localUri!);
   if (!rec.audioUrl) return null;
   const uri = await download(STORAGE_BUCKET, rec.audioUrl, rec.id);
   if (uri) await saveRecording({ ...rec, localUri: uri });
@@ -286,7 +387,7 @@ export async function ensureLocalAudio(recordingId: string): Promise<string | nu
 export async function ensureLocalVideo(videoId: string): Promise<string | null> {
   const clip = await getVideo(videoId);
   if (!clip) return null;
-  if (fileExists(clip.localUri)) return clip.localUri!;
+  if (fileExists(clip.localUri)) return resolveMediaUri(clip.localUri!);
   if (!clip.videoUrl) return null;
   const uri = await download(VIDEO_BUCKET, clip.videoUrl, clip.id);
   if (uri) await saveVideo({ ...clip, localUri: uri });

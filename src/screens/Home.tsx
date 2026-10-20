@@ -8,11 +8,12 @@ import { Pulse } from '@/components/Pulse';
 import { Screen } from '@/components/Screen';
 import { useApp } from '@/context/AppContext';
 import { CATEGORY_COLORS, CATEGORY_LABELS } from '@/data/questions';
-import { formatDuration, isFreeRecording } from '@/lib/logic';
+import { daysBetween, formatDuration, isFreeRecording, toDateStr } from '@/lib/logic';
 import { colors, shadows } from '@/lib/theme';
-import { signOut } from '@/services/auth';
+import { signOutSafely } from '@/screens/auth/signOutSafely';
 import { getQuestionsForChild, getRecordingsByChild, getStreak } from '@/services/storage';
 import type { Recording } from '@/types';
+import { categoryOf } from './memories/helpers';
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', {
@@ -30,13 +31,15 @@ export function Home() {
   const [signingOut, setSigningOut] = useState(false);
 
   const { parent, activeChild, todayQuestions, streak, user, isOnboarded } = state;
+  // A streak is only alive if the last recording was today or yesterday.
+  const liveStreak = streak && daysBetween(streak.lastRecordingDate, toDateStr()) <= 1 ? streak.currentStreak : 0;
 
   async function handleSignOut() {
     setSigningOut(true);
     try {
-      // Uploads anything pending, then clears this device.
-      await signOut(user);
-      router.replace('/');
+      // Uploads anything pending, then clears this device (asking first if something isn't backed up).
+      if (await signOutSafely(user)) router.replace('/');
+      else setSigningOut(false);
     } catch {
       setSigningOut(false);
       Alert.alert('Could not sign out', 'Please check your connection and try again.');
@@ -266,11 +269,11 @@ export function Home() {
       <Animated.View entering={FadeInDown.duration(400).delay(250)}>
         <View
           className="rounded-xl px-4 py-3 mb-4"
-          style={{ backgroundColor: streak && streak.currentStreak > 0 ? '#FFB34715' : '#F0F0F0' }}
+          style={{ backgroundColor: liveStreak > 0 ? '#FFB34715' : '#F0F0F0' }}
         >
-          {streak && streak.currentStreak > 0 ? (
+          {liveStreak > 0 ? (
             <Text testID="home-streak" className="font-nunito-bold text-echo-orange text-sm">
-              🔥 {streak.currentStreak}-day streak! Keep it going!
+              🔥 {liveStreak}-day streak! Keep it going!
             </Text>
           ) : (
             <Text testID="home-streak" className="font-nunito text-echo-gray text-sm">
@@ -312,7 +315,7 @@ export function Home() {
                   <View className="flex-row items-center justify-between">
                     <View
                       className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: CATEGORY_COLORS[rec.questionId.split('-')[0]] ?? '#8E8E93' }}
+                      style={{ backgroundColor: CATEGORY_COLORS[categoryOf(rec)] ?? '#8E8E93' }}
                     />
                     <Text className="font-inter text-xs text-echo-gray">{formatDuration(rec.durationSeconds)}</Text>
                   </View>

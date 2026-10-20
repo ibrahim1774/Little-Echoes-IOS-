@@ -3,10 +3,10 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 
 import { supabase } from './supabase';
-import { deleteAllMedia } from './files';
+import { deleteAllMedia, fileExists } from './files';
 import { cancelReminders } from './notifications';
 import { clearAllData, getAllRecordings, getAllVideos } from './storage';
-import { syncToCloud } from './cloudSync';
+import { getPendingDeletes, syncToCloud } from './cloudSync';
 import { resetAnalytics } from './analytics';
 import type { AuthUser } from '@/types';
 
@@ -65,6 +65,26 @@ export async function signInWithGoogle(): Promise<AuthResult> {
   }
 }
 
+/** Where the reset email's link sends people. Must be listed in Supabase Auth → Redirect URLs. */
+export const RESET_PASSWORD_REDIRECT = 'littleechoes://reset-password';
+
+export async function requestPasswordReset(email: string): Promise<{ error?: string }> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: RESET_PASSWORD_REDIRECT });
+  return error ? { error: error.message } : {};
+}
+
+/** Redeem the code from a reset link. Signs this device in as the account being reset. */
+export async function beginPasswordReset(code: string): Promise<AuthResult> {
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error || !data.user) return { error: error?.message ?? 'This reset link is no longer valid.' };
+  return { user: toUser(data.user), isNewUser: false };
+}
+
+export async function setNewPassword(password: string): Promise<{ error?: string }> {
+  const { error } = await supabase.auth.updateUser({ password });
+  return error ? { error: error.message } : {};
+}
+
 /** Sign in with Apple is available on every supported iOS version, but check anyway. */
 export async function isAppleSignInAvailable(): Promise<boolean> {
   try {
@@ -115,10 +135,17 @@ export async function signInWithApple(): Promise<AuthResult> {
   }
 }
 
-/** How many recordings and videos exist only on this device. */
+/** How many recordings, videos and deletes haven't reached the cloud yet. */
 export async function countUnsynced(): Promise<number> {
-  const [recordings, videos] = await Promise.all([getAllRecordings(), getAllVideos()]);
-  return recordings.filter((r) => !r.audioUrl).length + videos.filter((v) => !v.videoUrl).length;
+  const [recordings, videos, pendingDeletes] = await Promise.all([getAllRecordings(), getAllVideos(), getPendingDeletes()]);
+  // An item with no file and no cloud copy can never sync, so it doesn't hold up sign-out.
+  const waiting = (item: { rowSynced?: boolean; localUri?: string }, remote?: string) =>
+    !item.rowSynced && (!!remote || fileExists(item.localUri));
+  return (
+    recordings.filter((r) => waiting(r, r.audioUrl)).length +
+    videos.filter((v) => waiting(v, v.videoUrl)).length +
+    pendingDeletes.length
+  );
 }
 
 /** Remove this family's data from the device. */
@@ -130,14 +157,19 @@ export async function clearLocalData(): Promise<void> {
 
 /**
  * Sign out. Uploads anything pending first, then clears the device so the
- * next account never sees this one's data.
+ * next account never sees this one's data. If something still hasn't reached
+ * the cloud, nothing is cleared and the count comes back so the caller can ask
+ * the parent first; `force` signs out anyway.
  */
-export async function signOut(user: AuthUser | null): Promise<void> {
+export async function signOut(user: AuthUser | null, { force = false } = {}): Promise<{ unsynced: number }> {
   if (user) await syncToCloud(user);
+  const unsynced = user ? await countUnsynced() : 0;
+  if (unsynced > 0 && !force) return { unsynced };
   await clearLocalData();
   resetAnalytics();
   if (isGoogleConfigured) await GoogleSignin.signOut().catch(() => {});
   await supabase.auth.signOut().catch(() => {});
+  return { unsynced };
 }
 
 /** Permanently delete the account and everything stored for it. */

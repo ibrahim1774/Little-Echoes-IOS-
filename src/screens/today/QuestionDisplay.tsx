@@ -87,7 +87,11 @@ export function QuestionDisplay({
       <View className="items-center gap-4 mt-6">
         <Pulse>
           <Pressable
-            onPress={onStartRecording}
+            onPress={() => {
+              // The question being read aloud would end up in the take.
+              void Speech.stop();
+              onStartRecording();
+            }}
             accessibilityRole="button"
             accessibilityLabel="Start recording"
             testID="question-start-recording"

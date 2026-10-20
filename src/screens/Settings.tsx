@@ -9,7 +9,8 @@ import { Screen } from '@/components/Screen';
 import { useApp } from '@/context/AppContext';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/links';
 import { colors, shadows } from '@/lib/theme';
-import { deleteAccount, signOut } from '@/services/auth';
+import { deleteAccount } from '@/services/auth';
+import { signOutSafely } from '@/screens/auth/signOutSafely';
 import { syncToCloud } from '@/services/cloudSync';
 import {
   cancelReminders,
@@ -338,8 +339,8 @@ export function Settings() {
     if (signingOut) return;
     setSigningOut(true);
     try {
-      await signOut(user);
-      router.replace('/');
+      if (await signOutSafely(user)) router.replace('/');
+      else setSigningOut(false);
     } catch (err) {
       console.warn('[Settings] Sign out failed', err);
       setSigningOut(false);

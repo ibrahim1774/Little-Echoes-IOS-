@@ -42,5 +42,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // Reset links carry a one-time code that only this device (holding the verifier) can redeem.
+    flowType: 'pkce',
   },
 });

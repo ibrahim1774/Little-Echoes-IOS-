@@ -22,10 +22,28 @@ export function mediaFile(id: string, ext: string): File {
   return new File(mediaDir(), `${id}.${ext}`);
 }
 
+/**
+ * Stored paths include the app's container folder, which iOS can change (e.g. on reinstall or
+ * update). Media always lives in <documents>/media, so a stale path is mapped there by file name.
+ */
+export function resolveMediaUri(uri: string): string {
+  try {
+    if (new File(uri).exists) return uri;
+    const name = uri.split('/media/').pop();
+    if (name && name !== uri && !name.includes('/')) {
+      const current = new File(mediaDir(), name);
+      if (current.exists) return current.uri;
+    }
+  } catch {
+    // fall through
+  }
+  return uri;
+}
+
 export function fileExists(uri: string | undefined): boolean {
   if (!uri) return false;
   try {
-    return new File(uri).exists;
+    return new File(resolveMediaUri(uri)).exists;
   } catch {
     return false;
   }
@@ -34,7 +52,7 @@ export function fileExists(uri: string | undefined): boolean {
 export function deleteFile(uri: string | undefined): void {
   if (!uri) return;
   try {
-    const f = new File(uri);
+    const f = new File(resolveMediaUri(uri));
     if (f.exists) f.delete();
   } catch {
     // already gone
@@ -42,7 +60,7 @@ export function deleteFile(uri: string | undefined): void {
 }
 
 export async function readBytes(uri: string): Promise<ArrayBuffer> {
-  return new File(uri).arrayBuffer();
+  return new File(resolveMediaUri(uri)).arrayBuffer();
 }
 
 /** Download a remote URL into media storage. Returns the local URI. */

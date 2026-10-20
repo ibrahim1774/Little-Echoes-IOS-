@@ -7,7 +7,8 @@ import { useApp } from '@/context/AppContext';
 import { useSubscriptionReady } from '@/context/SubscriptionReady';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/links';
 import { shadows } from '@/lib/theme';
-import { deleteAccount, signOut } from '@/services/auth';
+import { deleteAccount } from '@/services/auth';
+import { signOutSafely } from '@/screens/auth/signOutSafely';
 import { PLACEMENTS, usePaywall, useRestorePurchases } from '@/services/subscription';
 
 const BENEFITS = [
@@ -60,9 +61,9 @@ export function PaywallScreen() {
 
   async function handleSignOut() {
     setBusy('signout');
-    await signOut(state.user);
+    const signedOut = await signOutSafely(state.user);
     setBusy(null);
-    router.replace('/');
+    if (signedOut) router.replace('/');
   }
 
   function confirmDeleteAccount() {

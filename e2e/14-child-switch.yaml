@@ -1,0 +1,127 @@
+appId: com.ibrahim1774.littleechoes
+env:
+  MIA: ${MIA}
+  LEO: ${LEO}
+---
+- runFlow: _dismiss-superwall-panel.yaml
+# Two children record on the same day: each keeps their own memory, and switching child
+# mid-flow never carries one child's questions or takes over to the other.
+# Mia: a free recording.
+- tapOn:
+    id: 'tab-home'
+- tapOn:
+    id: 'home-child-${MIA}'
+- tapOn:
+    id: 'tab-today'
+- tapOn:
+    id: 'today-start-free'
+- extendedWaitUntil:
+    visible:
+      id: 'recording-stop'
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 2500
+- tapOn:
+    id: 'recording-stop'
+- extendedWaitUntil:
+    visible:
+      id: 'review-next'
+    timeout: 10000
+- tapOn:
+    id: 'review-next'
+- waitForAnimationToEnd:
+    timeout: 3000
+# Leo: a free recording the same day.
+- tapOn:
+    id: 'tab-home'
+- tapOn:
+    id: 'home-child-${LEO}'
+- tapOn:
+    id: 'tab-today'
+- extendedWaitUntil:
+    visible:
+      id: 'today-start-free'
+    timeout: 10000
+- tapOn:
+    id: 'today-start-free'
+- extendedWaitUntil:
+    visible:
+      id: 'recording-stop'
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 2500
+- tapOn:
+    id: 'recording-stop'
+- extendedWaitUntil:
+    visible:
+      id: 'review-next'
+    timeout: 10000
+- tapOn:
+    id: 'review-next'
+- waitForAnimationToEnd:
+    timeout: 3000
+# Both children show today's memory.
+- tapOn:
+    id: 'tab-home'
+- tapOn:
+    id: 'home-child-${MIA}'
+- tapOn:
+    id: 'tab-memories'
+- runFlow: _memories-reset.yaml
+- extendedWaitUntil:
+    visible: '.*Custom audio.*'
+    timeout: 15000
+- takeScreenshot: e2e/shots/70-switch-mia-today
+- tapOn:
+    id: 'tab-home'
+- tapOn:
+    id: 'home-child-${LEO}'
+- tapOn:
+    id: 'tab-memories'
+- runFlow: _memories-reset.yaml
+- extendedWaitUntil:
+    visible: '.*Custom audio.*'
+    timeout: 15000
+- takeScreenshot: e2e/shots/71-switch-leo-today
+# Mid-flow switch: Mia answers question 1, then Leo is picked; Leo starts fresh.
+- tapOn:
+    id: 'tab-home'
+- tapOn:
+    id: 'home-child-${MIA}'
+- tapOn:
+    id: 'tab-today'
+- tapOn:
+    id: 'today-start-questions'
+- tapOn:
+    id: 'question-start-recording'
+- extendedWaitUntil:
+    visible:
+      id: 'recording-stop'
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 2500
+- tapOn:
+    id: 'recording-stop'
+- extendedWaitUntil:
+    visible:
+      id: 'review-next'
+    timeout: 10000
+- tapOn:
+    id: 'review-next'
+- extendedWaitUntil:
+    visible:
+      id: 'question-text'
+    timeout: 10000
+- tapOn:
+    id: 'tab-home'
+- tapOn:
+    id: 'home-child-${LEO}'
+- tapOn:
+    id: 'tab-today'
+- extendedWaitUntil:
+    visible:
+      id: 'today-start-free'
+    timeout: 10000
+- assertNotVisible:
+    id: 'question-text'
+- takeScreenshot: e2e/shots/72-switch-leo-fresh

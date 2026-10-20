@@ -1,0 +1,39 @@
+appId: com.ibrahim1774.littleechoes
+env:
+  EMAIL: ${EMAIL}
+  PASSWORD: ${PASSWORD}
+---
+# Signing in once is enough: quitting and reopening the app keeps the parent signed in.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- tapOn:
+    id: 'onboarding-signin'
+- tapOn:
+    id: 'signin-email'
+- inputText: ${EMAIL}
+- tapOn:
+    id: 'signin-password'
+- inputText: ${PASSWORD}
+- pressKey: Enter
+- tapOn:
+    id: 'signin-submit'
+- tapOn:
+    text: 'Not Now'
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: 'home-greeting'
+    timeout: 30000
+# Quit and reopen.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- runFlow: _dismiss-superwall-panel.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'home-greeting'
+    timeout: 30000
+- takeScreenshot: e2e/shots/80-still-signed-in

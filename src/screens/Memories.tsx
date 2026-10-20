@@ -7,17 +7,8 @@ import { Screen } from '@/components/Screen';
 import { useApp } from '@/context/AppContext';
 import { CATEGORY_COLORS } from '@/data/questions';
 import { shadows } from '@/lib/theme';
-import { deleteRecordingFromCloud, deleteVideoFromCloud, syncToCloud } from '@/services/cloudSync';
-import { deleteFile } from '@/services/files';
-import {
-  deleteRecording,
-  deleteVideo,
-  getRecording,
-  getRecordingsByChild,
-  getSessionsByChild,
-  getVideo,
-  getVideosByChild,
-} from '@/services/storage';
+import { removeRecording, removeVideo, syncToCloud } from '@/services/cloudSync';
+import { getRecordingsByChild, getSessionsByChild, getVideosByChild } from '@/services/storage';
 import type { VideoClip } from '@/types';
 
 import { CalendarView, type CalMonth } from './memories/CalendarView';
@@ -115,13 +106,8 @@ export function Memories() {
           .map((g) => ({ ...g, recordings: g.recordings.filter((r) => r.id !== recId) }))
           .filter((g) => g.recordings.length > 0)
       );
-      void (async () => {
-        // The stored row knows about files downloaded after this list was loaded
-        const rec = await getRecording(recId);
-        deleteFile(rec?.localUri);
-        await deleteRecording(recId);
-        if (user) void deleteRecordingFromCloud(user, recId, rec?.audioUrl);
-      })();
+      // The stored row knows about files downloaded after this list was loaded.
+      void removeRecording(user, recId);
     },
     [user]
   );
@@ -129,12 +115,7 @@ export function Memories() {
   const handleDeleteVideo = useCallback(
     (videoId: string) => {
       setVideos((prev) => prev.filter((v) => v.id !== videoId));
-      void (async () => {
-        const clip = await getVideo(videoId);
-        deleteFile(clip?.localUri);
-        await deleteVideo(videoId);
-        if (user) void deleteVideoFromCloud(user, videoId, clip?.videoUrl);
-      })();
+      void removeVideo(user, videoId);
     },
     [user]
   );

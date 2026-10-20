@@ -323,3 +323,22 @@ describe('streakFromDates', () => {
     expect(picked.map((q) => q.id)).toEqual(['m']);
   });
 });
+
+describe('ages count the day of the month', () => {
+  it('a child turning 3 later this month is still 2', () => {
+    expect(calcAgeGroup('2023-10-25', new Date(2026, 9, 4))).toBe('1-2');
+  });
+  it('a child whose third birthday is today is 3', () => {
+    expect(calcAgeGroup('2023-10-04', new Date(2026, 9, 4))).toBe('3-4');
+  });
+});
+
+describe('durations never show 60 seconds', () => {
+  it.each([
+    [59.6, '1:00'],
+    [119.5, '2:00'],
+    [59.4, '0:59'],
+  ])('%s → %s', (seconds, label) => {
+    expect(formatDuration(seconds)).toBe(label);
+  });
+});

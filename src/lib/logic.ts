@@ -30,8 +30,9 @@ export function daysBetween(a: string, b: string): number {
 }
 
 export function calcAgeGroup(birthdate: string, now: Date = new Date()): AgeGroup {
-  const [by, bm] = birthdate.split('-').map(Number);
-  const ageMonths = (now.getFullYear() - by) * 12 + (now.getMonth() + 1 - bm);
+  const [by, bm, bd] = birthdate.split('-').map(Number);
+  // Whole months lived: the current month only counts once the birthday's day has come.
+  const ageMonths = (now.getFullYear() - by) * 12 + (now.getMonth() + 1 - bm) - (now.getDate() < (bd || 1) ? 1 : 0);
   const years = Math.floor(ageMonths / 12);
   if (years <= 2) return '1-2';
   if (years <= 4) return '3-4';
@@ -234,22 +235,23 @@ export function parseJson<T>(value: unknown): T | null {
 export function rowToRecording(row: { id: string; data: unknown }): Recording | null {
   const meta = parseJson<Omit<Recording, 'id'>>(row.data);
   if (!meta || !meta.childId) return null;
-  // Never trust a device-local path that came from another device.
-  const { localUri: _ignored, ...rest } = meta as Recording;
+  // Never trust a device-local path or sync flag that came from another device.
+  const { localUri: _ignored, rowSynced: _synced, ...rest } = meta as Recording;
   return { ...rest, id: row.id };
 }
 
 export function rowToVideo(row: { id: string; data: unknown }): VideoClip | null {
   const meta = parseJson<Omit<VideoClip, 'id'>>(row.data);
   if (!meta || !meta.childId) return null;
-  const { localUri: _ignored, ...rest } = meta as VideoClip;
+  const { localUri: _ignored, rowSynced: _synced, ...rest } = meta as VideoClip;
   return { ...rest, id: row.id };
 }
 
 export function formatDuration(seconds: number): string {
   if (!seconds || isNaN(seconds)) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
+  const total = Math.round(seconds);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 

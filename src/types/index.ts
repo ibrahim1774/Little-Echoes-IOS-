@@ -69,6 +69,7 @@ export interface Recording {
   emotionTag?: EmotionTag;
   parentNote?: string;
   createdAt: string;
+  rowSynced?: boolean; // device-only: the cloud row is confirmed written
 }
 
 export interface VideoClip {
@@ -81,6 +82,7 @@ export interface VideoClip {
   durationSeconds: number;
   caption?: string;
   createdAt: string;
+  rowSynced?: boolean; // device-only: the cloud row is confirmed written
 }
 
 export interface Streak {

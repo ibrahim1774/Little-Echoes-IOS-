@@ -1,0 +1,17 @@
+appId: com.ibrahim1774.littleechoes
+---
+# Memories keeps its view and filters while the app runs; start from Timeline / All.
+- repeat:
+    while:
+      notVisible:
+        id: 'memories-timeline'
+    times: 3
+    commands:
+      - tapOn:
+          id: 'memories-view-timeline'
+      - waitForAnimationToEnd:
+          timeout: 1500
+- tapOn:
+    id: 'memories-media-all'
+- tapOn:
+    id: 'memories-category-all'

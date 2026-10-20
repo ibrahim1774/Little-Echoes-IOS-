@@ -9,9 +9,16 @@ import { Screen } from '@/components/Screen';
 import { useApp } from '@/context/AppContext';
 import { colors, shadows } from '@/lib/theme';
 import { track } from '@/services/analytics';
-import { isGoogleConfigured, signInWithApple, signInWithEmail, signInWithGoogle, type AuthResult } from '@/services/auth';
-import { getChildren, getParent } from '@/services/storage';
-import { supabase } from '@/services/supabase';
+import {
+  isGoogleConfigured,
+  requestPasswordReset,
+  signInWithApple,
+  signInWithEmail,
+  signInWithGoogle,
+  type AuthResult,
+} from '@/services/auth';
+
+import { routeAfterSignIn } from './routeAfterSignIn';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -40,19 +47,19 @@ export function SigninScreen() {
     }
 
     // Load cloud data onto this device
+    let profileLoaded = false;
     try {
-      await hydrateUser(result.user);
+      ({ profileLoaded } = await hydrateUser(result.user));
     } catch {
       // Cloud load failed; carry on with whatever is on the device.
     }
     track(result.isNewUser ? 'sign_up' : 'sign_in');
-
-    // Route: no profile → setup; otherwise the index route picks paywall or home.
-    const parent = await getParent();
-    const kids = parent ? await getChildren(parent.id) : [];
-    if (!parent) router.replace('/setup/parent');
-    else if (kids.length === 0) router.replace('/setup/child');
-    else router.replace('/');
+    // A brand-new account has no profile to lose.
+    const routeError = await routeAfterSignIn(result.user, { profileLoaded: profileLoaded || result.isNewUser });
+    if (routeError) {
+      setError(routeError);
+      setLoading(false);
+    }
   }
 
   async function handleSignin() {
@@ -93,11 +100,12 @@ export function SigninScreen() {
       return;
     }
     setError('');
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
+    const { error: resetError } = await requestPasswordReset(email);
     if (resetError) {
-      setError(resetError.message);
+      setError(resetError);
       return;
     }
+    track('password_reset_requested');
     setResetSent(true);
   }
 
@@ -172,6 +180,15 @@ export function SigninScreen() {
             onBlur={() => setFocused(null)}
             className={`${INPUT_CLASS} ${focused === 'password' ? 'border-echo-coral' : 'border-transparent'}`}
           />
+          <Pressable
+            testID="signin-forgot-password"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => void handleForgotPassword()}
+            className="mt-2 self-end active:opacity-80"
+          >
+            <Text className="font-inter-semibold text-sm text-echo-sky">Forgot password?</Text>
+          </Pressable>
         </View>
 
         {!!error && (
@@ -181,7 +198,7 @@ export function SigninScreen() {
         )}
         {resetSent && (
           <Text testID="signin-reset-sent" className="font-inter text-xs text-echo-sky text-center">
-            Check your email for a reset link.
+            Check your email for a reset link, then open it on this iPhone.
           </Text>
         )}
 
@@ -213,16 +230,6 @@ export function SigninScreen() {
           <GoogleButton testID="signin-google" onPress={() => void handleGoogle()} disabled={loading} />
         )}
       </View>
-
-      <Pressable
-        testID="signin-forgot-password"
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={() => void handleForgotPassword()}
-        className="mt-4 self-center active:opacity-80"
-      >
-        <Text className="font-inter text-xs text-echo-sky">Forgot password?</Text>
-      </Pressable>
 
       <View className="flex-row items-center justify-center mt-6">
         <Text className="font-inter text-xs text-echo-gray">Not a subscriber yet? </Text>

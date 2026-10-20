@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, type ReactNode } from 'react';
 import { colorScheme } from 'nativewind';
 
-import { loadFromCloud } from '@/services/cloudSync';
+import { loadFromCloud, syncToCloud } from '@/services/cloudSync';
 import { ensureSeeded } from '@/services/db';
 import { scheduleReminders } from '@/services/notifications';
 import { getChildren, getParent, getStreak, getTodaySession, getTodayVideo } from '@/services/storage';
@@ -70,7 +70,7 @@ interface AppContextValue {
   /** Re-read parent, children and today's status from the local store. */
   reloadLocal: () => Promise<void>;
   /** Pull the user's data from the cloud, then reload local state. */
-  hydrateUser: (user: AuthUser) => Promise<void>;
+  hydrateUser: (user: AuthUser) => Promise<{ profileLoaded: boolean }>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -120,8 +120,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (user: AuthUser) => {
       dispatch({ type: 'SET_USER', payload: user });
       identifyUser(user.id);
-      await loadFromCloud(user);
+      const result = await loadFromCloud(user);
       await reloadLocal();
+      return result;
     },
     [reloadLocal]
   );
@@ -142,7 +143,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             dispatch({ type: 'SET_USER', payload: user });
             identifyUser(user.id);
             // Cloud refresh happens in the background; it must not block launch.
-            void loadFromCloud(user).then(() => (cancelled ? undefined : reloadLocal()));
+            // Then push anything this device still holds (e.g. a sync cut short last time).
+            void loadFromCloud(user)
+              .then(() => (cancelled ? undefined : reloadLocal()))
+              .then(() => (cancelled ? undefined : syncToCloud(user)));
           }
         } catch {
           // Auth check failed (expired token, offline) — continue with local data.

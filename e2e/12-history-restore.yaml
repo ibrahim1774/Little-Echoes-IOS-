@@ -1,0 +1,129 @@
+appId: com.ibrahim1774.littleechoes
+env:
+  EMAIL: ${EMAIL}
+  PASSWORD: ${PASSWORD}
+  MIA: ${MIA}
+  LEO: ${LEO}
+  MIA_OLDEST: ${MIA_OLDEST}
+  MIA_MIDNIGHT: ${MIA_MIDNIGHT}
+  MIA_VIDEO: ${MIA_VIDEO}
+  LEO_REC: ${LEO_REC}
+---
+# A family with ~18 months of history in the cloud (two children, audio + video) signs in on a
+# clean device: everything comes back, old audio and cloud-only video play, children stay separate.
+- runFlow:
+    file: _launch.yaml
+    env:
+      TIER_INDEX: 1
+- tapOn:
+    id: 'onboarding-signin'
+- tapOn:
+    id: 'signin-email'
+- inputText: ${EMAIL}
+- tapOn:
+    id: 'signin-password'
+- inputText: ${PASSWORD}
+- pressKey: Enter
+- tapOn:
+    id: 'signin-submit'
+- extendedWaitUntil:
+    visible: 'Not Now'
+    timeout: 20000
+    optional: true
+- tapOn:
+    text: 'Not Now'
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: 'home-greeting'
+    timeout: 30000
+- assertVisible: 'Hi, QA Parent.*'
+- takeScreenshot: e2e/shots/50-history-home
+- tapOn:
+    id: 'home-child-${MIA}'
+- tapOn:
+    id: 'tab-memories'
+- extendedWaitUntil:
+    visible:
+      id: 'memories-timeline'
+    timeout: 20000
+- takeScreenshot: e2e/shots/51-history-timeline-top
+# The 23:50 recording belongs to the day it was made in local time.
+- assertVisible:
+    id: 'recording-card-${MIA_MIDNIGHT}'
+- scrollUntilVisible:
+    element:
+      id: 'recording-card-${MIA_OLDEST}'
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- takeScreenshot: e2e/shots/52-history-timeline-oldest
+- tapOn:
+    id: 'recording-card-${MIA_OLDEST}'
+- tapOn:
+    id: 'audio-play-${MIA_OLDEST}'
+- waitForAnimationToEnd:
+    timeout: 4000
+- assertNotVisible: "Couldn't load this recording.*"
+- takeScreenshot: e2e/shots/53-history-oldest-playing
+- scrollUntilVisible:
+    element:
+      id: 'memories-view-calendar'
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: 'memories-view-calendar'
+- assertVisible:
+    id: 'memories-calendar'
+- repeat:
+    while:
+      notVisible:
+        id: 'memories-cal-day-2025-04-10'
+    times: 20
+    commands:
+      - tapOn:
+          id: 'memories-cal-prev'
+- takeScreenshot: e2e/shots/54-history-calendar-apr-2025
+- tapOn:
+    id: 'memories-view-growth'
+- assertVisible:
+    id: 'memories-growth'
+- takeScreenshot: e2e/shots/55-history-growth
+- tapOn:
+    id: 'growth-play-all'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: 'growth-play-all'
+- runFlow: _memories-reset.yaml
+- tapOn:
+    id: 'memories-media-video'
+- extendedWaitUntil:
+    visible:
+      id: 'video-card-${MIA_VIDEO}'
+    timeout: 15000
+- takeScreenshot: e2e/shots/56-history-videos
+- tapOn:
+    id: 'video-card-${MIA_VIDEO}'
+- tapOn:
+    id: 'video-play-${MIA_VIDEO}'
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: e2e/shots/57-history-video-playing
+- tapOn:
+    id: 'memories-media-all'
+# Leo's memories are his own.
+- tapOn:
+    id: 'tab-home'
+- tapOn:
+    id: 'home-child-${LEO}'
+- tapOn:
+    id: 'tab-memories'
+- extendedWaitUntil:
+    visible:
+      id: 'recording-card-${LEO_REC}'
+    timeout: 15000
+- assertNotVisible:
+    id: 'recording-card-${MIA_MIDNIGHT}'
+- takeScreenshot: e2e/shots/58-history-leo
