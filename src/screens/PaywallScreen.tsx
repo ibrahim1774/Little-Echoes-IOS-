@@ -154,7 +154,7 @@ export function PaywallScreen() {
         </Pressable>
 
         <Text className="font-inter text-xs text-echo-gray text-center">
-          Audio + Video starts with a 3-day free trial. Cancel anytime.
+          Yearly plans start with a 3-day free trial. Cancel anytime.
         </Text>
 
         <View className="flex-row justify-center gap-5 mt-1">
