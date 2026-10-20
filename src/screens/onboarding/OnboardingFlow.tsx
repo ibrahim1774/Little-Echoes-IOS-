@@ -116,21 +116,17 @@ function Title({ children }: { children: ReactNode }) {
   );
 }
 
-/** A question with four answers; the chosen one's reply fades in below. */
+/** A question with four answers; the chosen one's reply fades in, then the flow moves on. */
 function PainScreen({
   question,
   name,
   selected,
   onSelect,
-  onContinue,
-  continueLabel,
 }: {
   question: PainQuestion;
   name: string;
   selected?: string;
   onSelect: (id: string) => void;
-  onContinue: () => void;
-  continueLabel: string;
 }) {
   const choice = question.choices.find((c) => c.id === selected);
   return (
@@ -176,9 +172,6 @@ function PainScreen({
           </Text>
         </Reanimated.View>
       )}
-      <View className="mt-auto pt-3 w-full">
-        <PrimaryButton testID="onboarding-continue" label={continueLabel} onPress={onContinue} disabled={!choice} />
-      </View>
     </View>
   );
 }
@@ -194,6 +187,11 @@ export function OnboardingFlow() {
   const fade = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const moving = useRef(false);
+  // Picking an answer moves on after its reply has been read; one pending move at a time.
+  const autoAdvance = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (autoAdvance.current) clearTimeout(autoAdvance.current);
+  }, []);
 
   const step = STEPS[index];
   const name = childName.trim();
@@ -223,6 +221,10 @@ export function OnboardingFlow() {
   }, [index, progressAnim]);
 
   function go(delta: 1 | -1) {
+    if (delta === -1 && autoAdvance.current) {
+      clearTimeout(autoAdvance.current);
+      autoAdvance.current = null;
+    }
     if (moving.current) return;
     const next = index + delta;
     if (next < 0 || next >= STEPS.length) return;
@@ -237,10 +239,16 @@ export function OnboardingFlow() {
   }
 
   function choosePain(questionId: string, choiceId: string) {
+    if (autoAdvance.current) return;
     const next = { ...pains, [questionId]: choiceId };
     setPains(next);
     void saveOnboardingAnswers({ pains: next });
     track('onboarding_answer', { question: questionId, answer: choiceId });
+    autoAdvance.current = setTimeout(() => {
+      autoAdvance.current = null;
+      if (questionId === PAIN_FUTURE.id) finish();
+      else go(1);
+    }, 1400);
   }
 
   function saveName() {
@@ -335,8 +343,6 @@ export function OnboardingFlow() {
               name={name}
               selected={pains[pain.id]}
               onSelect={(id) => choosePain(pain.id, id)}
-              onContinue={step === 'future' ? finish : () => go(1)}
-              continueLabel={step === 'future' ? 'See my plan →' : step === 'phase' ? "That's exactly why we built this →" : 'Continue'}
             />
           )}
 

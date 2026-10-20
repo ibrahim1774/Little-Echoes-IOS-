@@ -14,35 +14,42 @@ env:
 - takeScreenshot: e2e/shots/01-hook
 - tapOn:
     id: 'onboarding-start'
-# Three pain questions: the reply appears once an answer is picked.
+# Three pain questions: picking an answer shows its reply, then moves on by itself.
 - assertVisible: "What's the hardest part of watching them grow up?"
 - tapOn:
     id: 'onboarding-growing-0'
 - assertVisible:
     id: 'onboarding-reply'
 - takeScreenshot: e2e/shots/01-pain-growing
-- tapOn:
-    id: 'onboarding-continue'
-- assertVisible: 'What have you already forgotten?'
+- extendedWaitUntil:
+    visible: 'What have you already forgotten?'
+    timeout: 5000
 - tapOn:
     id: 'onboarding-forgotten-1'
-- tapOn:
-    id: 'onboarding-continue'
-- assertVisible: 'How does it feel when you realise a phase is over?'
+- extendedWaitUntil:
+    visible: 'How does it feel when you realise a phase is over?'
+    timeout: 5000
+# Back right after picking cancels the move and keeps the earlier answer.
 - tapOn:
     id: 'onboarding-phase-0'
-# Back keeps the earlier answer.
 - tapOn:
     id: 'onboarding-back'
-- assertVisible: 'What have you already forgotten?'
+- extendedWaitUntil:
+    visible: 'What have you already forgotten?'
+    timeout: 5000
 - assertVisible:
     id: 'onboarding-reply'
 - tapOn:
-    id: 'onboarding-continue'
+    id: 'onboarding-forgotten-1'
+- extendedWaitUntil:
+    visible: 'How does it feel when you realise a phase is over?'
+    timeout: 5000
 - tapOn:
-    id: 'onboarding-continue'
+    id: 'onboarding-phase-0'
 # Name
-- assertVisible: 'Who are we saving memories for?'
+- extendedWaitUntil:
+    visible: 'Who are we saving memories for?'
+    timeout: 5000
 - tapOn:
     id: 'onboarding-child-name'
 - inputText: 'Mia'
@@ -86,8 +93,6 @@ env:
 - tapOn:
     id: 'onboarding-future-0'
 - takeScreenshot: e2e/shots/01-pain-future
-- tapOn:
-    id: 'onboarding-continue'
 - extendedWaitUntil:
     visible: 'Give Mia proof of how loved they were|Choose your plan.*'
     timeout: 20000
