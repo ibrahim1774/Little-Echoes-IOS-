@@ -19,7 +19,6 @@ import {
   PAIN_GROWING,
   PAIN_PHASE,
   REMINDER_TIMES,
-  WEEKDAYS,
   withName,
   type PainQuestion,
 } from './content';
@@ -173,8 +172,8 @@ export function OnboardingFlow() {
   const [index, setIndex] = useState(0);
   const [childName, setChildName] = useState('');
   const [pains, setPains] = useState<Record<string, string>>({});
-  const [reminderTime, setReminderTime] = useState('18:00');
-  const [everyDay, setEveryDay] = useState(true);
+  // Nothing starts selected: only the answer tapped on this screen shows a tick, then we move on.
+  const [picked, setPicked] = useState<string | null>(null);
   const fade = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const moving = useRef(false);
@@ -187,15 +186,15 @@ export function OnboardingFlow() {
   const step = STEPS[index];
   const name = childName.trim();
 
-  // Answers survive leaving and coming back (e.g. from sign-in).
+  // The name survives leaving and coming back (e.g. from sign-in); answers are asked afresh.
   useEffect(() => {
     void getOnboardingAnswers().then((a) => {
       if (a.childName) setChildName(a.childName);
       if (a.pains) setPains(a.pains);
-      if (a.reminderTime) setReminderTime(a.reminderTime);
-      if (a.reminderDays) setEveryDay(a.reminderDays.length === 7);
     });
   }, []);
+
+  useEffect(() => setPicked(null), [index]);
 
   // A subscriber who never finished signing up (or reinstalled) goes to make their account.
   useEffect(() => {
@@ -231,6 +230,7 @@ export function OnboardingFlow() {
 
   function choosePain(questionId: string, choiceId: string) {
     if (autoAdvance.current) return;
+    setPicked(choiceId);
     const next = { ...pains, [questionId]: choiceId };
     setPains(next);
     void saveOnboardingAnswers({ pains: next });
@@ -247,17 +247,25 @@ export function OnboardingFlow() {
     go(1);
   }
 
-  async function saveReminder() {
-    const days = everyDay ? EVERY_DAY : WEEKDAYS;
-    await saveOnboardingAnswers({ reminderTime, reminderDays: days });
-    // Asked here, where the reason is on screen. Declining just means no reminders.
-    const granted = await requestNotificationPermission().catch(() => false);
-    track('onboarding_reminder', { time: reminderTime, days: days.length, granted });
-    go(1);
+  function chooseReminder(time: string) {
+    // The pending ref stays set until we've moved on, so a second tap (e.g. behind the permission dialog) is ignored.
+    if (autoAdvance.current) return;
+    setPicked(time);
+    autoAdvance.current = setTimeout(() => {
+      void (async () => {
+        await saveOnboardingAnswers({ reminderTime: time, reminderDays: EVERY_DAY });
+        // Asked here, where the reason is on screen. Declining just means no reminders.
+        const granted = await requestNotificationPermission().catch(() => false);
+        track('onboarding_reminder', { time, days: EVERY_DAY.length, granted });
+        autoAdvance.current = null;
+        go(1);
+      })();
+    }, 500);
   }
 
   function finish() {
     track('onboarding_completed');
+    setPicked(null); // coming back from the paywall shows the question untouched
     // New users choose a plan before making an account; anyone signed in carries on where they were.
     if (!state.user) router.push('/paywall');
     else router.replace(destinationFor(state));
@@ -332,7 +340,7 @@ export function OnboardingFlow() {
             <PainScreen
               question={pain}
               name={name}
-              selected={pains[pain.id]}
+              selected={picked ?? undefined}
               onSelect={(id) => choosePain(pain.id, id)}
             />
           )}
@@ -395,18 +403,18 @@ export function OnboardingFlow() {
             <View className="flex-1 w-full gap-5 pt-2">
               <Title>When should we remind you?</Title>
               <Text className="font-inter text-sm text-center text-echo-gray">
-                A gentle nudge with a question to ask {name || 'your little one'}. Ten seconds is enough.
+                A gentle daily nudge with a question to ask {name || 'your little one'}. Ten seconds is enough.
               </Text>
               <View className="flex-row flex-wrap justify-between" style={{ rowGap: 12 }}>
                 {REMINDER_TIMES.map((r) => {
-                  const on = r.time === reminderTime;
+                  const on = r.time === picked;
                   return (
                     <Pressable
                       key={r.time}
                       testID={`onboarding-reminder-${r.time}`}
                       accessibilityRole="button"
                       accessibilityState={{ selected: on }}
-                      onPress={() => setReminderTime(r.time)}
+                      onPress={() => chooseReminder(r.time)}
                       className={`bg-white dark:bg-echo-dark-card rounded-2xl py-4 items-center gap-1 border-2 ${
                         on ? 'border-echo-coral' : 'border-transparent'
                       }`}
@@ -418,26 +426,6 @@ export function OnboardingFlow() {
                     </Pressable>
                   );
                 })}
-              </View>
-              <View className="flex-row bg-white dark:bg-echo-dark-card rounded-full p-1" style={[shadows.soft, { alignSelf: 'center' }]}>
-                {[
-                  { label: 'Every day', value: true },
-                  { label: 'Weekdays', value: false },
-                ].map((o) => (
-                  <Pressable
-                    key={o.label}
-                    testID={`onboarding-days-${o.value ? 'all' : 'weekdays'}`}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: everyDay === o.value }}
-                    onPress={() => setEveryDay(o.value)}
-                    className={`px-5 py-2 rounded-full ${everyDay === o.value ? 'bg-echo-coral' : ''}`}
-                  >
-                    <Text className={`font-nunito-bold text-sm ${everyDay === o.value ? 'text-white' : 'text-echo-gray'}`}>{o.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <View className="mt-auto pt-3 w-full">
-                <PrimaryButton testID="onboarding-continue" label="Remind me" onPress={() => void saveReminder()} />
               </View>
             </View>
           )}

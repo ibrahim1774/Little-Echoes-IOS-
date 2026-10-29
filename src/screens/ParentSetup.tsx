@@ -41,7 +41,7 @@ export function ParentSetup() {
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       settings: existing?.settings ?? {
         reminderTime: answers.reminderTime ?? '18:00',
-        reminderDays: answers.reminderDays ?? ['mon', 'tue', 'wed', 'thu', 'fri'],
+        reminderDays: answers.reminderDays ?? ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
         darkMode: false,
         questionMode: 'fresh',
         selectedQuestionIds: [],

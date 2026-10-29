@@ -73,8 +73,7 @@ env:
 - tapOn:
     id: 'onboarding-reminder-19:30'
 - takeScreenshot: e2e/shots/01-reminder
-- tapOn:
-    id: 'onboarding-continue'
+# Picking a time moves on by itself once the permission prompt is answered.
 - runFlow:
     when:
       visible: 'Allow'
